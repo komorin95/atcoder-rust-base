@@ -124,3 +124,65 @@ impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<RangeInclusive<usize>>
             .operate(&self.query(..*range.start()).two_sided_inverse());
     }
 }
+
+use std::cell::Cell;
+
+#[derive(Debug, Clone)]
+struct EquivalenceRelation {
+    parent: Vec<Cell<usize>>,
+    rank: Vec<Cell<usize>>,
+}
+
+impl EquivalenceRelation {
+    fn new(n: usize) -> Self {
+        let mut parent = Vec::with_capacity(n);
+        for i in 0..n {
+            parent.push(Cell::new(i));
+        }
+        let rank = vec![Cell::new(0); n];
+        return Self { parent, rank };
+    }
+
+    fn make_equivalent(&mut self, a: usize, b: usize) {
+        let volume = self.parent.len();
+        if a >= volume || b >= volume {
+            panic!(
+                "Tried to make {} and {} equivalent but there are only {} elements",
+                a, b, volume
+            );
+        }
+        let aa = self.find(a);
+        let bb = self.find(b);
+        if aa == bb {
+            return;
+        }
+        let aarank = self.rank[aa].get();
+        let bbrank = self.rank[bb].get();
+        if aarank > bbrank {
+            self.parent[bb].set(aa);
+        // self.rank[aa] = aarank.max(bbrank + 1);
+        } else {
+            self.parent[aa].set(bb);
+            self.rank[bb].set(bbrank.max(aarank + 1));
+        }
+    }
+
+    fn find(&self, a: usize) -> usize {
+        let volume = self.parent.len();
+        if a >= volume {
+            panic!("Tried to find {} but there are only {} elements", a, volume);
+        }
+        let b = self.parent[a].get();
+        if b == a {
+            return a;
+        } else {
+            let c = self.find(b);
+            self.parent[a].set(c);
+            return c;
+        }
+    }
+
+    fn are_equivalent(&self, a: usize, b: usize) -> bool {
+        return self.find(a) == self.find(b);
+    }
+}
