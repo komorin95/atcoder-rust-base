@@ -34,7 +34,7 @@ num-traits = "=0.2.11"
 #nalgebra = "=0.20.0"
 
 # (線形)代数の抽象化
-#alga = "=0.9.3"
+alga = "=0.9.3"
 
 # libmのRust実装
 #libm = "=0.2.1"
