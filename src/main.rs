@@ -84,7 +84,7 @@ fn number_theoretic_transformation(
 // It requires commutativity so that "plus" operation works
 use alga::general::{AbstractGroupAbelian, Additive, Operator};
 use std::marker::PhantomData;
-use std::ops::{RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Range, RangeInclusive, RangeTo, RangeToInclusive};
 
 struct FenwickTree<A, O> {
     partial_sums: Vec<A>,
@@ -150,6 +150,13 @@ impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<RangeInclusive<usize>>
         return self
             .query(..=*range.end())
             .operate(&self.query(..*range.start()).two_sided_inverse());
+    }
+}
+
+impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<Range<usize>> for FenwickTree<A, O> {
+    type Output = A;
+    fn query(&self, range: Range<usize>) -> A {
+        return self.query(range.start..=range.end - 1);
     }
 }
 
