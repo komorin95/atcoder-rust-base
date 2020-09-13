@@ -52,6 +52,34 @@ impl Div for ModP {
     }
 }
 
+// Number-theoretic transformation
+// The length of f must be a power of 2
+// and zeta must be a primitive f.len()th root of unity
+// start and skip should be 0 and 1 respectively for the root invocation
+// The inverse can be calculated by doing the same
+// with the original zeta's inverse as zeta
+// and dividing by f.len()
+fn number_theoretic_transformation(
+    f: &Vec<ModP>,
+    start: usize,
+    skip: usize,
+    zeta: ModP,
+) -> Vec<ModP> {
+    let n = f.len() / skip;
+    if n == 1 {
+        return vec![f[start]];
+    }
+    let g0 = number_theoretic_transformation(f, start, skip * 2, zeta * zeta);
+    let g1 = number_theoretic_transformation(f, start + skip, skip * 2, zeta * zeta);
+    let mut pow_zeta = ModP(1);
+    let mut g = Vec::new();
+    for i in 0..n {
+        g.push(g0[i % (n / 2)] + pow_zeta * g1[i % (n / 2)]);
+        pow_zeta = pow_zeta * zeta;
+    }
+    return g;
+}
+
 // BIT from https://github.com/rust-lang-ja/atcoder-rust-base/blob/ja-all-enabled/examples/abc157-e-proconio.rs
 // It requires commutativity so that "plus" operation works
 use alga::general::{AbstractGroupAbelian, Additive, Operator};
