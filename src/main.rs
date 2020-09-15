@@ -59,6 +59,7 @@ impl Div for ModP {
 // The inverse can be calculated by doing the same
 // with the original zeta's inverse as zeta
 // and dividing by f.len()
+#[allow(dead_code)]
 fn number_theoretic_transformation(
     f: &Vec<ModP>,
     start: usize,
@@ -91,6 +92,7 @@ struct FenwickTree<A, O> {
     phantom_operator: PhantomData<O>,
 }
 
+#[allow(dead_code)]
 impl<A: AbstractGroupAbelian<O>, O: Operator> FenwickTree<A, O> {
     fn new(n: usize) -> Self {
         Self {
@@ -168,6 +170,7 @@ struct EquivalenceRelation {
     rank: Vec<Cell<usize>>,
 }
 
+#[allow(dead_code)]
 impl EquivalenceRelation {
     fn new(n: usize) -> Self {
         let mut parent = Vec::with_capacity(n);
