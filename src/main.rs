@@ -224,3 +224,73 @@ impl EquivalenceRelation {
         return self.find(a) == self.find(b);
     }
 }
+
+// Segment tree for range minimum query and alike problems
+// The closures must fulfill the defining laws of monoids
+// Indexing is 0-based
+// The code is based on that in C++ in the 'ant book'
+#[derive(Clone, PartialEq, Debug)]
+struct SegmentTree<A, CUnit, CMult> {
+    data: Vec<A>,
+    monoid_unit_closure: CUnit,
+    monoid_op_closure: CMult,
+}
+
+#[allow(dead_code)]
+impl<A, CUnit, CMult> SegmentTree<A, CUnit, CMult>
+where
+    A: Copy,
+    CUnit: Fn() -> A,
+    CMult: Fn(A, A) -> A,
+{
+    fn new(n: usize, monoid_unit_closure: CUnit, monoid_op_closure: CMult) -> Self {
+        let mut nn = 1;
+        while nn < n {
+            nn *= 2;
+        }
+        let this = Self {
+            data: vec![monoid_unit_closure(); 2 * nn - 1],
+            monoid_unit_closure,
+            monoid_op_closure,
+        };
+        return this;
+    }
+
+    fn update(&mut self, k: usize, a: A) {
+        let n = (self.data.len() + 1) / 2;
+        let mut k = k + n - 1;
+        self.data[k] = a;
+        while k > 0 {
+            k = (k - 1) / 2;
+            self.data[k] = (self.monoid_op_closure)(self.data[k * 2 + 1], self.data[k * 2 + 2]);
+        }
+    }
+
+    fn query_internal(&self, a: usize, b: usize, k: usize, l: usize, r: usize) -> A {
+        if r <= a || b <= l {
+            return (self.monoid_unit_closure)();
+        }
+        if a <= l && r <= b {
+            return self.data[k];
+        } else {
+            let vl = self.query_internal(a, b, k * 2 + 1, l, (l + r) / 2);
+            let vr = self.query_internal(a, b, k * 2 + 2, (l + r) / 2, r);
+            return (self.monoid_op_closure)(vl, vr);
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl<A, CUnit, CMult> RangeQuery<Range<usize>> for SegmentTree<A, CUnit, CMult>
+where
+    A: Copy,
+    CUnit: Fn() -> A,
+    CMult: Fn(A, A) -> A,
+{
+    type Output = A;
+    fn query(&self, range: Range<usize>) -> A {
+        let n = (self.data.len() + 1) / 2;
+        return self.query_internal(range.start, range.end, 0, 0, n);
+    }
+}
+
