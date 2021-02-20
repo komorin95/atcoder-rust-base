@@ -6,7 +6,7 @@ use proconio::{input, fastout};
 fn main() {
     input! {
         n: usize,
-        mut plan: [(i32, i32, i32); n],  // Vec<(i32, i32, i32)>
+        mut _plan: [(i32, i32, i32); n],  // Vec<(i32, i32, i32)>
     }
 }
 
@@ -52,8 +52,36 @@ impl Div for ModP {
     }
 }
 
+// Binary search for closures
+// returns the value i where f(i) == true but f(i+1) == false
+// if forall i f(i) == true, returns max_value
+#[allow(dead_code)]
+fn closure_binary_search<T>(f: T, min_value: usize, max_value: usize) -> usize
+where
+    T: Fn(usize) -> bool,
+{
+    if !f(min_value) {
+        panic!("Check the condition for closure_binary_search()");
+    }
+    if f(max_value) {
+        return max_value;
+    }
+    let mut min_value = min_value;
+    let mut max_value = max_value;
+    while min_value + 1 < max_value {
+        let check_value = min_value + (max_value - min_value) / 2;
+        if f(check_value) {
+            min_value = check_value;
+        } else {
+            max_value = check_value;
+        }
+    }
+    return min_value;
+}
+
 // Iterator of proper subsets
 // Caution: it does NOT starts with the universal set itself!
+#[allow(dead_code)]
 struct SubsetIterator {
     universal_set: usize,
     last_set: usize,
