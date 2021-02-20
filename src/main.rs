@@ -52,6 +52,33 @@ impl Div for ModP {
     }
 }
 
+// Iterator of proper subsets
+// Caution: it does NOT starts with the universal set itself!
+struct SubsetIterator {
+    universal_set: usize,
+    last_set: usize,
+}
+impl SubsetIterator {
+    fn new(universal_set: usize) -> Self {
+        SubsetIterator {
+            universal_set,
+            last_set: universal_set,
+        }
+    }
+}
+impl Iterator for SubsetIterator {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.last_set == 0 {
+            return None;
+        } else {
+            self.last_set -= 1;
+            self.last_set &= self.universal_set;
+            return Some(self.last_set);
+        }
+    }
+}
+
 // Number-theoretic transformation
 // The length of f must be a power of 2
 // and zeta must be a primitive f.len()th root of unity
