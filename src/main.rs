@@ -52,6 +52,52 @@ impl Div for ModP {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+struct ModM(usize, usize);
+
+#[allow(dead_code)]
+fn pow_modm(base: ModM, index: usize) -> ModM {
+    if index == 0 {
+        return ModM(1, base.1);
+    } else {
+        if index % 2 == 0 {
+            let half = pow_modm(base, index / 2);
+            return half * half;
+        } else {
+            let half = pow_modm(base, index / 2);
+            return half * half * base;
+        }
+    }
+}
+impl Add for ModM {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        if self.1 != rhs.1 {
+            panic!("Tried to add two number in different modulus");
+        }
+        return ModM((self.0 + rhs.0) % self.1, self.1);
+    }
+}
+impl Sub for ModM {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        if self.1 != rhs.1 {
+            panic!("Tried to subtract two number in different modulus");
+        }
+        return ModM((self.0 + self.1 - rhs.0) % self.1, self.1);
+    }
+}
+impl Mul for ModM {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self {
+        if self.1 != rhs.1 {
+            panic!("Tried to multiply two number in different modulus");
+        }
+        return ModM((self.0 * rhs.0) % self.1, self.1);
+    }
+}
+
+
 // Binary search for closures
 // returns the value i where f(i) == true but f(i+1) == false
 // if forall i f(i) == true, returns max_value
