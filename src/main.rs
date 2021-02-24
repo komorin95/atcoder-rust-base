@@ -138,7 +138,8 @@ fn number_theoretic_transformation(
 
 // BIT from https://github.com/rust-lang-ja/atcoder-rust-base/blob/ja-all-enabled/examples/abc157-e-proconio.rs
 // It requires commutativity so that "plus" operation works
-use alga::general::{AbstractGroupAbelian, Additive, Operator};
+use alga::general::{AbstractGroupAbelian, Operator};
+// use alga::general::Additive;
 use std::marker::PhantomData;
 use std::ops::{Range, RangeInclusive, RangeTo, RangeToInclusive};
 
