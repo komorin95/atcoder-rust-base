@@ -14,6 +14,7 @@ use num_traits::{pow, One};
 use std::ops::{Add, Div, Mul, Sub};
 
 const MODULUS: usize = 1000000007;
+// const MODULUS: usize = 998244353;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 struct ModP(usize);
