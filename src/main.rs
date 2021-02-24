@@ -81,11 +81,11 @@ where
 
 // Iterator of proper subsets
 // Caution: it does NOT starts with the universal set itself!
-#[allow(dead_code)]
 struct SubsetIterator {
     universal_set: usize,
     last_set: usize,
 }
+#[allow(dead_code)]
 impl SubsetIterator {
     fn new(universal_set: usize) -> Self {
         SubsetIterator {
