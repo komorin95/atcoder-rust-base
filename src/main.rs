@@ -396,3 +396,20 @@ where
     }
 }
 
+#[allow(dead_code)]
+fn divisors(n: u64) -> Vec<u64> {
+    let mut divisors = Vec::new();
+    for d in 1..=n {
+        if d * d > n {
+            break;
+        }
+        if n % d != 0 {
+            continue;
+        }
+        divisors.push(d);
+        if n / d != d {
+            divisors.push(n / d);
+        }
+    }
+    return divisors;
+}
