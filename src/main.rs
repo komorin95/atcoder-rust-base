@@ -413,3 +413,18 @@ fn divisors(n: u64) -> Vec<u64> {
     }
     return divisors;
 }
+
+use num_traits::PrimInt;
+#[allow(dead_code)]
+fn gcd<T>(a: T, b: T) -> T
+where
+    T: PrimInt,
+{
+    if a < b {
+        return gcd(b, a);
+    } else if b == T::zero() {
+        return a;
+    } else {
+        return gcd(b, a % b);
+    }
+}
