@@ -54,12 +54,15 @@ impl Div for ModP {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-struct ModM(usize, usize);
+struct ModM<T>(T, T);
 
 #[allow(dead_code)]
-fn pow_modm(base: ModM, index: usize) -> ModM {
+fn pow_modm<T>(base: ModM<T>, index: usize) -> ModM<T>
+where
+    T: PrimInt,
+{
     if index == 0 {
-        return ModM(1, base.1);
+        return ModM(T::one(), base.1);
     } else {
         if index % 2 == 0 {
             let half = pow_modm(base, index / 2);
@@ -70,7 +73,10 @@ fn pow_modm(base: ModM, index: usize) -> ModM {
         }
     }
 }
-impl Add for ModM {
+impl<T> Add for ModM<T>
+where
+    T: PrimInt,
+{
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         if self.1 != rhs.1 {
@@ -79,7 +85,10 @@ impl Add for ModM {
         return ModM((self.0 + rhs.0) % self.1, self.1);
     }
 }
-impl Sub for ModM {
+impl<T> Sub for ModM<T>
+where
+    T: PrimInt,
+{
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
         if self.1 != rhs.1 {
@@ -88,13 +97,96 @@ impl Sub for ModM {
         return ModM((self.0 + self.1 - rhs.0) % self.1, self.1);
     }
 }
-impl Mul for ModM {
+impl<T> Mul for ModM<T>
+where
+    T: PrimInt,
+{
     type Output = Self;
     fn mul(self, rhs: Self) -> Self {
         if self.1 != rhs.1 {
             panic!("Tried to multiply two number in different modulus");
         }
         return ModM((self.0 * rhs.0) % self.1, self.1);
+    }
+}
+
+// For a = aa mod m,
+// it computes (g mod m, b mod m),
+// that satisfies g = gcd(aa,m) and aa*b = g mod m
+#[allow(dead_code)]
+fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
+where
+    T: PrimInt + std::fmt::Debug,
+{
+    let a = am.0;
+    let m = am.1;
+    if m % a == T::zero() {
+        return (am, ModM(T::one(), m));
+    }
+    let q = m / a;
+    let r = m % a;
+    let (ga, xa) = inv_gcd(ModM(r, a));
+    let g = ga.0;
+    let gm = ModM(g, m);
+    let x = xa.0;
+    if r * x > g {
+        let y = (r * x - g) / a;
+        let z = (q * x + y) % m;
+        let zm = ModM(T::zero(), m) - ModM(z, m);
+        debug_assert_eq!(am * zm, gm);
+        return (gm, zm);
+    } else {
+        let y = (g - r * x) / a;
+        let zm = ModM(y, m) - ModM((q * x) % m, m);
+        debug_assert_eq!(am * zm, gm);
+        return (gm, zm);
+    }
+}
+
+// Two-term Chinese remainder theorem function
+#[allow(dead_code)]
+fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
+where
+    T: PrimInt + std::fmt::Debug,
+{
+    let a = am.0;
+    let m = am.1;
+    let b = bmm.0;
+    let mm = bmm.1;
+    if m == mm {
+        if a == b {
+            return Some(am);
+        } else {
+            return None;
+        }
+    } else if m > mm {
+        return crt(bmm, am);
+    } else {
+        // m < mm
+        let (dmm, xmm) = inv_gcd(ModM(m, mm));
+        let d = dmm.0;
+        debug_assert_eq!(d, gcd(m, mm));
+        let x = xmm.0;
+        if a % d != b % d {
+            return None;
+        }
+        let mmm = m * mm / d;
+        if a == b {
+            return Some(ModM(a, mmm));
+        } else if a < b {
+            let y = (b - a) / d;
+            let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
+            debug_assert_eq!(ans.0 % m, a);
+            debug_assert_eq!(ans.0 % mm, b);
+            return Some(ans);
+        } else {
+            // a > b
+            let y = (a - b) / d;
+            let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
+            debug_assert_eq!(ans.0 % m, a);
+            debug_assert_eq!(ans.0 % mm, b);
+            return Some(ans);
+        }
     }
 }
 
