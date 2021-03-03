@@ -521,3 +521,30 @@ where
         return gcd(b, a % b);
     }
 }
+
+use num_traits::Unsigned;
+// Sum of floor((ai+b)/m) for i = 0..=n-1
+// based on the (new) editorial of practice2-c
+#[allow(dead_code)]
+fn floor_sum<T>(n: T, m: T, a: T, b: T) -> T
+where
+    T: PrimInt + Unsigned,
+{
+    if n == T::zero() {
+        return T::zero();
+    }
+    if a >= m || b >= m {
+        return floor_sum(n, m, a % m, b % m)
+            + (b / m) * n
+            + (a / m) * n * (n - T::one()) / (T::one() + T::one());
+    }
+    // a, b < m
+    if a == T::zero() {
+        return T::zero();
+    }
+    // 0<a<m, 0<=b<m
+    let y = (a * n + b) / m;
+    let z = (a * n + b) % m;
+    // a*n+b = y*m+z
+    return floor_sum(y, a, m, z);
+}
