@@ -1,5 +1,18 @@
 // -*- coding:utf-8-unix -*-
 
+#[cfg(debug_assertions)]
+#[allow(unused)]
+macro_rules! debug_eprintln {
+    ($p:tt, $($x:expr),*) => {
+        eprintln!($p, $($x,)*);
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug_eprintln {
+    ($p:tt, $($x:expr),*) => {};
+}
+
 use proconio::{input, fastout};
 
 #[fastout]
