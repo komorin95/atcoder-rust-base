@@ -24,186 +24,331 @@ fn main() {
     }
 }
 
-use num_traits::{pow, One};
-use std::ops::{Add, Div, Mul, Sub};
-
 const MODULUS: usize = 1000000007;
 // const MODULUS: usize = 998244353;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-struct ModP(usize);
+#[allow(unused)]
+mod static_prime_modint {
+    use crate::MODULUS;
+    use num_traits::{pow, One};
+    use std::ops::{Add, Div, Mul, Sub};
 
-impl One for ModP {
-    fn one() -> Self {
-        return ModP(1);
-    }
-}
-impl Add for ModP {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self {
-        return ModP((self.0 + rhs.0) % MODULUS);
-    }
-}
-impl Sub for ModP {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
-        return ModP((self.0 + MODULUS - rhs.0) % MODULUS);
-    }
-}
-impl Mul for ModP {
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self {
-        return ModP((self.0 * rhs.0) % MODULUS);
-    }
-}
-impl Div for ModP {
-    type Output = Self;
-    fn div(self, rhs: Self) -> Self {
-        if rhs.0 == 0 {
-            panic!("Tried to divide by ModP(0)!");
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    pub struct ModP(usize);
+    impl ModP {
+        pub fn new(x: usize) -> Self {
+            ModP(x % MODULUS)
         }
-        let rhs_inv = pow(rhs, MODULUS - 2);
-        return self * rhs_inv;
+        pub fn value(&self) -> usize {
+            self.0
+        }
+    }
+    impl One for ModP {
+        fn one() -> Self {
+            return ModP(1);
+        }
+    }
+    impl Add for ModP {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self {
+            return ModP((self.0 + rhs.0) % MODULUS);
+        }
+    }
+    impl Sub for ModP {
+        type Output = Self;
+        fn sub(self, rhs: Self) -> Self {
+            return ModP((self.0 + MODULUS - rhs.0) % MODULUS);
+        }
+    }
+    impl Mul for ModP {
+        type Output = Self;
+        fn mul(self, rhs: Self) -> Self {
+            return ModP((self.0 * rhs.0) % MODULUS);
+        }
+    }
+    impl Div for ModP {
+        type Output = Self;
+        fn div(self, rhs: Self) -> Self {
+            if rhs.0 == 0 {
+                panic!("Tried to divide by ModP(0)!");
+            }
+            let rhs_inv = pow(rhs, MODULUS - 2);
+            return self * rhs_inv;
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct CombinatoricsTable {
+        factorial_table: Vec<ModP>,
+        stirling_second_table: Vec<Vec<ModP>>,
+    }
+    impl CombinatoricsTable {
+        // fn new0() -> Self {
+        //     CombinatoricsTable {
+        //         factorial_table: vec![ModP(1)],
+        //         stirling_second_table: vec![vec![ModP(1)]],
+        //     }
+        // }
+        pub fn new(src_max: usize, dist_max: usize) -> Self {
+            let mut factorial_table = vec![ModP(1)];
+            for i in 1..=dist_max {
+                factorial_table.push(ModP(i) * factorial_table[i - 1]);
+            }
+            let mut stirling_second_table: Vec<Vec<ModP>> = Vec::with_capacity(src_max + 1);
+            for n in 0..=src_max {
+                let mut st_temp = vec![ModP(0); dist_max + 1];
+                for k in 0..=dist_max {
+                    if n == 0 && k == 0 {
+                        st_temp[k] = ModP(1);
+                    } else if n == 0 || k == 0 {
+                        st_temp[k] = ModP(0);
+                    } else {
+                        st_temp[k] = ModP(k) * stirling_second_table[n - 1][k]
+                            + stirling_second_table[n - 1][k - 1];
+                    }
+                }
+                stirling_second_table.push(st_temp);
+            }
+            CombinatoricsTable {
+                factorial_table,
+                stirling_second_table,
+            }
+        }
+        pub fn factorial(&mut self, n: usize) -> ModP {
+            if self.factorial_table.len() > n {
+                return self.factorial_table[n];
+            } else {
+                for i in self.factorial_table.len()..=n {
+                    self.factorial_table
+                        .push(ModP(i) * self.factorial_table[i - 1]);
+                }
+                return self.factorial_table[n];
+            }
+        }
+        pub fn stirling_second(&mut self, n: usize, k: usize) -> ModP {
+            if self.stirling_second_table.len() > n && self.stirling_second_table[n].len() > k {
+                return self.stirling_second_table[n][k];
+            } else {
+                for nn in 0..=n {
+                    if self.stirling_second_table.len() <= nn {
+                        self.stirling_second_table.push(vec![ModP(0)]);
+                    }
+                    for kk in self.stirling_second_table[nn].len()..=k {
+                        if nn == 0 {
+                            self.stirling_second_table[nn].push(ModP(0));
+                        } else {
+                            let temp1 = self.stirling_second_table[nn - 1][kk];
+                            let temp2 = self.stirling_second_table[nn - 1][kk - 1];
+                            self.stirling_second_table[nn].push(ModP(kk) * temp1 + temp2);
+                        }
+                    }
+                }
+                return self.stirling_second_table[n][k];
+            }
+        }
+        pub fn tw_any(&self, src: usize, dist: usize) -> ModP {
+            pow(ModP(dist), src)
+        }
+        pub fn tw_inj(&mut self, src: usize, dist: usize) -> ModP {
+            if src > dist {
+                ModP(0)
+            } else {
+                self.factorial(dist) / self.factorial(dist - src)
+            }
+        }
+        pub fn tw_surj(&mut self, src: usize, dist: usize) -> ModP {
+            if src < dist {
+                ModP(0)
+            } else {
+                self.factorial(dist) * self.stirling_second(src, dist)
+            }
+        }
+        pub fn tw_inj_srcsym(&mut self, src: usize, dist: usize) -> ModP {
+            if src > dist {
+                ModP(0)
+            } else {
+                self.factorial(dist) / self.factorial(src) / self.factorial(dist - src)
+            }
+        }
+    }
+
+    // Number-theoretic transformation
+    // The length of f must be a power of 2
+    // and zeta must be a primitive f.len()th root of unity
+    // start and skip should be 0 and 1 respectively for the root invocation
+    // The inverse can be calculated by doing the same
+    // with the original zeta's inverse as zeta
+    // and dividing by f.len()
+    pub fn number_theoretic_transformation(
+        f: &Vec<ModP>,
+        start: usize,
+        skip: usize,
+        zeta: ModP,
+    ) -> Vec<ModP> {
+        let n = f.len() / skip;
+        if n == 1 {
+            return vec![f[start]];
+        }
+        let g0 = number_theoretic_transformation(f, start, skip * 2, zeta * zeta);
+        let g1 = number_theoretic_transformation(f, start + skip, skip * 2, zeta * zeta);
+        let mut pow_zeta = ModP(1);
+        let mut g = Vec::new();
+        for i in 0..n {
+            g.push(g0[i % (n / 2)] + pow_zeta * g1[i % (n / 2)]);
+            pow_zeta = pow_zeta * zeta;
+        }
+        return g;
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-struct ModM<T>(T, T);
+#[allow(unused)]
+mod dynamic_modint {
+    use crate::gcd;
+    use num_traits::{PrimInt, Unsigned};
+    use std::ops::{Add, Mul, Sub};
 
-#[allow(dead_code)]
-fn pow_modm<T>(base: ModM<T>, index: usize) -> ModM<T>
-where
-    T: PrimInt,
-{
-    if index == 0 {
-        return ModM(T::one(), base.1);
-    } else {
-        if index % 2 == 0 {
-            let half = pow_modm(base, index / 2);
-            return half * half;
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    pub struct ModM<T>(T, T);
+
+    impl<T> ModM<T>
+    where
+        T: PrimInt + Unsigned,
+    {
+        pub fn new(a: T, m: T) -> Self {
+            ModM(a % m, m)
+        }
+    }
+    pub fn pow_modm<T>(base: ModM<T>, index: usize) -> ModM<T>
+    where
+        T: PrimInt + Unsigned,
+    {
+        if index == 0 {
+            return ModM(T::one(), base.1);
         } else {
-            let half = pow_modm(base, index / 2);
-            return half * half * base;
+            if index % 2 == 0 {
+                let half = pow_modm(base, index / 2);
+                return half * half;
+            } else {
+                let half = pow_modm(base, index / 2);
+                return half * half * base;
+            }
         }
     }
-}
-impl<T> Add for ModM<T>
-where
-    T: PrimInt,
-{
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self {
-        if self.1 != rhs.1 {
-            panic!("Tried to add two number in different modulus");
+    impl<T> Add for ModM<T>
+    where
+        T: PrimInt + Unsigned,
+    {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self {
+            if self.1 != rhs.1 {
+                panic!("Tried to add two number in different modulus");
+            }
+            return ModM((self.0 + rhs.0) % self.1, self.1);
         }
-        return ModM((self.0 + rhs.0) % self.1, self.1);
     }
-}
-impl<T> Sub for ModM<T>
-where
-    T: PrimInt,
-{
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
-        if self.1 != rhs.1 {
-            panic!("Tried to subtract two number in different modulus");
+    impl<T> Sub for ModM<T>
+    where
+        T: PrimInt + Unsigned,
+    {
+        type Output = Self;
+        fn sub(self, rhs: Self) -> Self {
+            if self.1 != rhs.1 {
+                panic!("Tried to subtract two number in different modulus");
+            }
+            return ModM((self.0 + self.1 - rhs.0) % self.1, self.1);
         }
-        return ModM((self.0 + self.1 - rhs.0) % self.1, self.1);
     }
-}
-impl<T> Mul for ModM<T>
-where
-    T: PrimInt,
-{
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self {
-        if self.1 != rhs.1 {
-            panic!("Tried to multiply two number in different modulus");
+    impl<T> Mul for ModM<T>
+    where
+        T: PrimInt + Unsigned,
+    {
+        type Output = Self;
+        fn mul(self, rhs: Self) -> Self {
+            if self.1 != rhs.1 {
+                panic!("Tried to multiply two number in different modulus");
+            }
+            return ModM((self.0 * rhs.0) % self.1, self.1);
         }
-        return ModM((self.0 * rhs.0) % self.1, self.1);
     }
-}
 
-// For a = aa mod m,
-// it computes (g mod m, b mod m),
-// that satisfies g = gcd(aa,m) and aa*b = g mod m
-#[allow(dead_code)]
-fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
-where
-    T: PrimInt + std::fmt::Debug,
-{
-    let a = am.0;
-    let m = am.1;
-    if m % a == T::zero() {
-        return (am, ModM(T::one(), m));
-    }
-    let q = m / a;
-    let r = m % a;
-    let (ga, xa) = inv_gcd(ModM(r, a));
-    let g = ga.0;
-    let gm = ModM(g, m);
-    let x = xa.0;
-    if r * x > g {
-        let y = (r * x - g) / a;
-        let z = (q * x + y) % m;
-        let zm = ModM(T::zero(), m) - ModM(z, m);
-        debug_assert_eq!(am * zm, gm);
-        return (gm, zm);
-    } else {
-        let y = (g - r * x) / a;
-        let zm = ModM(y, m) - ModM((q * x) % m, m);
-        debug_assert_eq!(am * zm, gm);
-        return (gm, zm);
-    }
-}
-
-// Two-term Chinese remainder theorem function
-#[allow(dead_code)]
-fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
-where
-    T: PrimInt + std::fmt::Debug,
-{
-    let a = am.0;
-    let m = am.1;
-    let b = bmm.0;
-    let mm = bmm.1;
-    if m == mm {
-        if a == b {
-            return Some(am);
+    // For a = aa mod m,
+    // it computes (g mod m, b mod m),
+    // that satisfies g = gcd(aa,m) and aa*b = g mod m
+    fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
+    where
+        T: PrimInt + Unsigned + std::fmt::Debug,
+    {
+        let a = am.0;
+        let m = am.1;
+        if m % a == T::zero() {
+            return (am, ModM(T::one(), m));
+        }
+        let q = m / a;
+        let r = m % a;
+        let (ga, xa) = inv_gcd(ModM(r, a));
+        let g = ga.0;
+        let gm = ModM(g, m);
+        let x = xa.0;
+        if r * x > g {
+            let y = (r * x - g) / a;
+            let z = (q * x + y) % m;
+            let zm = ModM(T::zero(), m) - ModM(z, m);
+            debug_assert_eq!(am * zm, gm);
+            return (gm, zm);
         } else {
-            return None;
+            let y = (g - r * x) / a;
+            let zm = ModM(y, m) - ModM((q * x) % m, m);
+            debug_assert_eq!(am * zm, gm);
+            return (gm, zm);
         }
-    } else if m > mm {
-        return crt(bmm, am);
-    } else {
-        // m < mm
-        let (dmm, xmm) = inv_gcd(ModM(m, mm));
-        let d = dmm.0;
-        debug_assert_eq!(d, gcd(m, mm));
-        let x = xmm.0;
-        if a % d != b % d {
-            return None;
-        }
-        let mmm = m * mm / d;
-        if a == b {
-            return Some(ModM(a, mmm));
-        } else if a < b {
-            let y = (b - a) / d;
-            let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
-            debug_assert_eq!(ans.0 % m, a);
-            debug_assert_eq!(ans.0 % mm, b);
-            return Some(ans);
+    }
+
+    // Two-term Chinese remainder theorem function
+    fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
+    where
+        T: PrimInt + Unsigned + std::fmt::Debug,
+    {
+        let a = am.0;
+        let m = am.1;
+        let b = bmm.0;
+        let mm = bmm.1;
+        if m == mm {
+            if a == b {
+                return Some(am);
+            } else {
+                return None;
+            }
+        } else if m > mm {
+            return crt(bmm, am);
         } else {
-            // a > b
-            let y = (a - b) / d;
-            let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
-            debug_assert_eq!(ans.0 % m, a);
-            debug_assert_eq!(ans.0 % mm, b);
-            return Some(ans);
+            // m < mm
+            let (dmm, xmm) = inv_gcd(ModM(m, mm));
+            let d = dmm.0;
+            debug_assert_eq!(d, gcd(m, mm));
+            let x = xmm.0;
+            if a % d != b % d {
+                return None;
+            }
+            let mmm = m * mm / d;
+            if a == b {
+                return Some(ModM(a, mmm));
+            } else if a < b {
+                let y = (b - a) / d;
+                let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
+                debug_assert_eq!(ans.0 % m, a);
+                debug_assert_eq!(ans.0 % mm, b);
+                return Some(ans);
+            } else {
+                // a > b
+                let y = (a - b) / d;
+                let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
+                debug_assert_eq!(ans.0 % m, a);
+                debug_assert_eq!(ans.0 % mm, b);
+                return Some(ans);
+            }
         }
     }
 }
-
 
 // Binary search for closures
 // returns the value i where f(i) == true but f(i+1) == false
@@ -257,117 +402,6 @@ impl Iterator for SubsetIterator {
             self.last_set &= self.universal_set;
             return Some(self.last_set);
         }
-    }
-}
-
-// Number-theoretic transformation
-// The length of f must be a power of 2
-// and zeta must be a primitive f.len()th root of unity
-// start and skip should be 0 and 1 respectively for the root invocation
-// The inverse can be calculated by doing the same
-// with the original zeta's inverse as zeta
-// and dividing by f.len()
-#[allow(dead_code)]
-fn number_theoretic_transformation(
-    f: &Vec<ModP>,
-    start: usize,
-    skip: usize,
-    zeta: ModP,
-) -> Vec<ModP> {
-    let n = f.len() / skip;
-    if n == 1 {
-        return vec![f[start]];
-    }
-    let g0 = number_theoretic_transformation(f, start, skip * 2, zeta * zeta);
-    let g1 = number_theoretic_transformation(f, start + skip, skip * 2, zeta * zeta);
-    let mut pow_zeta = ModP(1);
-    let mut g = Vec::new();
-    for i in 0..n {
-        g.push(g0[i % (n / 2)] + pow_zeta * g1[i % (n / 2)]);
-        pow_zeta = pow_zeta * zeta;
-    }
-    return g;
-}
-
-// BIT from https://github.com/rust-lang-ja/atcoder-rust-base/blob/ja-all-enabled/examples/abc157-e-proconio.rs
-// It requires commutativity so that "plus" operation works
-use alga::general::{AbstractGroupAbelian, Operator};
-// use alga::general::Additive;
-use std::marker::PhantomData;
-use std::ops::{Range, RangeInclusive, RangeTo, RangeToInclusive};
-
-struct FenwickTree<A, O> {
-    partial_sums: Vec<A>,
-    phantom_operator: PhantomData<O>,
-}
-
-#[allow(dead_code)]
-impl<A: AbstractGroupAbelian<O>, O: Operator> FenwickTree<A, O> {
-    fn new(n: usize) -> Self {
-        Self {
-            partial_sums: vec![A::identity(); n],
-            phantom_operator: PhantomData,
-        }
-    }
-
-    fn operate_to_index(&mut self, i: usize, x: &A) {
-        let mut i1 = i + 1;
-        while i1 <= self.partial_sums.len() {
-            self.partial_sums[i1 - 1] = self.partial_sums[i1 - 1].operate(x);
-            // add "the last nonzero bit" to i1
-            i1 += 1 << i1.trailing_zeros();
-        }
-    }
-}
-
-trait RangeQuery<T> {
-    type Output;
-    fn query(&self, r: T) -> Self::Output;
-}
-
-impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<RangeToInclusive<usize>>
-    for FenwickTree<A, O>
-{
-    type Output = A;
-    fn query(&self, range: RangeToInclusive<usize>) -> A {
-        let mut sum = A::identity();
-        let mut i1 = range.end + 1;
-        while i1 > 0 {
-            sum = sum.operate(&self.partial_sums[i1 - 1]);
-            i1 -= 1 << i1.trailing_zeros();
-        }
-        return sum;
-    }
-}
-
-impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<RangeTo<usize>>
-    for FenwickTree<A, O>
-{
-    type Output = A;
-    fn query(&self, range: RangeTo<usize>) -> A {
-        if range.end == 0 {
-            return A::identity();
-        } else {
-            return self.query(..=range.end - 1);
-        }
-    }
-}
-
-impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<RangeInclusive<usize>>
-    for FenwickTree<A, O>
-{
-    type Output = A;
-    fn query(&self, range: RangeInclusive<usize>) -> A {
-        return self
-            .query(..=*range.end())
-            .operate(&self.query(..*range.start()).two_sided_inverse());
-    }
-}
-
-impl<A: AbstractGroupAbelian<O>, O: Operator> RangeQuery<Range<usize>> for FenwickTree<A, O> {
-    type Output = A;
-    fn query(&self, range: Range<usize>) -> A {
-        return self.query(range.start..=range.end - 1);
     }
 }
 
@@ -488,6 +522,13 @@ where
         }
     }
 }
+
+trait RangeQuery<T> {
+    type Output;
+    fn query(&self, r: T) -> Self::Output;
+}
+
+use std::ops::Range;
 
 #[allow(dead_code)]
 impl<A, CUnit, CMult> RangeQuery<Range<usize>> for SegmentTree<A, CUnit, CMult>
