@@ -9,6 +9,7 @@ macro_rules! debug_eprintln {
 }
 
 #[cfg(not(debug_assertions))]
+#[allow(unused)]
 macro_rules! debug_eprintln {
     ($p:tt, $($x:expr),*) => {};
 }
