@@ -83,12 +83,6 @@ mod static_prime_modint {
         stirling_second_table: Vec<Vec<ModP>>,
     }
     impl CombinatoricsTable {
-        // fn new0() -> Self {
-        //     CombinatoricsTable {
-        //         factorial_table: vec![ModP(1)],
-        //         stirling_second_table: vec![vec![ModP(1)]],
-        //     }
-        // }
         pub fn new(src_max: usize, dist_max: usize) -> Self {
             let mut factorial_table = vec![ModP(1)];
             for i in 1..=dist_max {
@@ -118,32 +112,14 @@ mod static_prime_modint {
             if self.factorial_table.len() > n {
                 return self.factorial_table[n];
             } else {
-                for i in self.factorial_table.len()..=n {
-                    self.factorial_table
-                        .push(ModP(i) * self.factorial_table[i - 1]);
-                }
-                return self.factorial_table[n];
+                panic!("factorial_table is not long enough");
             }
         }
         pub fn stirling_second(&mut self, n: usize, k: usize) -> ModP {
             if self.stirling_second_table.len() > n && self.stirling_second_table[n].len() > k {
                 return self.stirling_second_table[n][k];
             } else {
-                for nn in 0..=n {
-                    if self.stirling_second_table.len() <= nn {
-                        self.stirling_second_table.push(vec![ModP(0)]);
-                    }
-                    for kk in self.stirling_second_table[nn].len()..=k {
-                        if nn == 0 {
-                            self.stirling_second_table[nn].push(ModP(0));
-                        } else {
-                            let temp1 = self.stirling_second_table[nn - 1][kk];
-                            let temp2 = self.stirling_second_table[nn - 1][kk - 1];
-                            self.stirling_second_table[nn].push(ModP(kk) * temp1 + temp2);
-                        }
-                    }
-                }
-                return self.stirling_second_table[n][k];
+                panic!("stirling_second_table is not large enough");
             }
         }
         pub fn tw_any(&self, src: usize, dist: usize) -> ModP {
