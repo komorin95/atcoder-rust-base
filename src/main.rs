@@ -108,14 +108,14 @@ mod static_prime_modint {
                 stirling_second_table,
             }
         }
-        pub fn factorial(&mut self, n: usize) -> ModP {
+        pub fn factorial(&self, n: usize) -> ModP {
             if self.factorial_table.len() > n {
                 return self.factorial_table[n];
             } else {
                 panic!("factorial_table is not long enough");
             }
         }
-        pub fn stirling_second(&mut self, n: usize, k: usize) -> ModP {
+        pub fn stirling_second(&self, n: usize, k: usize) -> ModP {
             if self.stirling_second_table.len() > n && self.stirling_second_table[n].len() > k {
                 return self.stirling_second_table[n][k];
             } else {
@@ -125,21 +125,21 @@ mod static_prime_modint {
         pub fn tw_any(&self, src: usize, dist: usize) -> ModP {
             pow(ModP(dist), src)
         }
-        pub fn tw_inj(&mut self, src: usize, dist: usize) -> ModP {
+        pub fn tw_inj(&self, src: usize, dist: usize) -> ModP {
             if src > dist {
                 ModP(0)
             } else {
                 self.factorial(dist) / self.factorial(dist - src)
             }
         }
-        pub fn tw_surj(&mut self, src: usize, dist: usize) -> ModP {
+        pub fn tw_surj(&self, src: usize, dist: usize) -> ModP {
             if src < dist {
                 ModP(0)
             } else {
                 self.factorial(dist) * self.stirling_second(src, dist)
             }
         }
-        pub fn tw_inj_srcsym(&mut self, src: usize, dist: usize) -> ModP {
+        pub fn tw_inj_srcsym(&self, src: usize, dist: usize) -> ModP {
             if src > dist {
                 ModP(0)
             } else {
