@@ -14,7 +14,7 @@ macro_rules! debug_eprintln {
     ($p:tt, $($x:expr),*) => {};
 }
 
-use proconio::{input, fastout};
+use proconio::{fastout, input};
 
 #[fastout]
 fn main() {
@@ -175,6 +175,48 @@ mod static_prime_modint {
         }
         return g;
     }
+
+    // convolution function
+    pub fn convolution(aa: &[ModP], bb: &[ModP]) -> Vec<ModP> {
+        let mut a: Vec<ModP> = aa.iter().cloned().collect();
+        let mut b: Vec<ModP> = bb.iter().cloned().collect();
+        let mut nn = 1;
+        let mut nn_index = 0;
+        while nn < aa.len() + bb.len() - 1 {
+            nn *= 2;
+            nn_index += 1;
+        }
+        while a.len() < nn {
+            a.push(ModP(0));
+        }
+        while b.len() < nn {
+            b.push(ModP(0));
+        }
+        debug_assert_eq!(MODULUS, 998244353); // TODO: support other primes
+        debug_assert!(nn_index <= 23);
+        let mut zeta = ModP(15311432); // a primitive 2^23-th root of unity
+        while nn_index < 23 {
+            zeta = zeta * zeta;
+            nn_index += 1;
+        }
+        // Now zeta is a primitive nn-th root of unity
+        let ahat = number_theoretic_transformation(&a, 0, 1, zeta);
+        let bhat = number_theoretic_transformation(&b, 0, 1, zeta);
+        let mut chat = Vec::new();
+        for i in 0..nn {
+            chat.push(ahat[i] * bhat[i]);
+        }
+        let mut c = number_theoretic_transformation(&chat, 0, 1, ModP(1) / zeta);
+        for ci in &mut c {
+            *ci = *ci / ModP(nn);
+        }
+        // Now c is the convolution
+        for i in aa.len() + bb.len() - 1..c.len() {
+            debug_assert_eq!(c[i], ModP::new(0));
+        }
+        c.resize(aa.len() + bb.len() - 1, ModP::new(0));
+        return c;
+    }
 }
 
 #[allow(unused)]
@@ -322,6 +364,47 @@ mod dynamic_modint {
                 debug_assert_eq!(ans.0 % mm, b);
                 return Some(ans);
             }
+        }
+    }
+
+    // Helper function for number-theoretic transformation
+    // lists Proth primes of the form
+    // p = k * 2^n + 1
+    // in the form
+    // n k p a.
+    // a^k is a primitive 2^n-th root of unity in mod p.
+    pub fn list_proth_primes(max: usize) {
+        for n in 1..64 {
+            let two_n = 1 << n;
+            if two_n >= max {
+                break;
+            }
+            for k0 in 1..=(two_n / 2) {
+                let k = 2 * k0 - 1;
+                let p = k * two_n + 1;
+                if p > max {
+                    break;
+                }
+                let alist = vec![2, 3, 5, 7, 11, 13, 17, 19];
+                for a in alist {
+                    if a >= p {
+                        break;
+                    }
+                    let sym = pow_modm(ModM(a as u128, p as u128), (p - 1) / 2);
+                    if sym.0 == (p - 1) as u128 {
+                        println!("{} {} {} {}", n, k, p, a);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn check_powers(a: usize, p: usize, n: usize) {
+        let mut aa = ModM(a as u128, p as u128);
+        for i in 0..n {
+            println!("{} times: {}", i, aa.0);
+            aa = aa * aa;
         }
     }
 }
