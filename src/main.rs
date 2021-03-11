@@ -24,80 +24,137 @@ fn main() {
     }
 }
 
-const MODULUS: usize = 1000000007;
-// const MODULUS: usize = 998244353;
-
 #[allow(unused)]
 mod static_prime_modint {
-    use crate::MODULUS;
-    use num_traits::{pow, One};
+    use num_traits::{pow, One, PrimInt, Unsigned};
+    use std::marker::PhantomData;
     use std::ops::{Add, Div, Mul, Sub};
 
+    pub trait Modulus: Copy + Eq + Ord + std::hash::Hash + std::fmt::Debug {
+        const MODULUS: usize;
+        const ZETA: usize;
+        const MAX_NN_INDEX: usize;
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+    pub enum Mod10 {}
+    impl Modulus for Mod10 {
+        const MODULUS: usize = 1000000007;
+        const ZETA: usize = 0;
+        const MAX_NN_INDEX: usize = 0;
+    }
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+    pub enum Mod9 {}
+    impl Modulus for Mod9 {
+        const MODULUS: usize = 998244353;
+        const ZETA: usize = 15311432;
+        const MAX_NN_INDEX: usize = 23;
+    }
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+    pub enum Mod9_2 {}
+    impl Modulus for Mod9_2 {
+        const MODULUS: usize = 985661441;
+        const ZETA: usize = 79986183;
+        const MAX_NN_INDEX: usize = 22;
+    }
+
     #[derive(Clone, Copy, PartialEq, Debug)]
-    pub struct ModP(usize);
-    impl ModP {
+    pub struct ModP<M>(usize, PhantomData<M>)
+    where
+        M: Modulus;
+    impl<M> ModP<M>
+    where
+        M: Modulus,
+    {
         pub fn new(x: usize) -> Self {
-            ModP(x % MODULUS)
+            ModP(x % M::MODULUS, PhantomData)
         }
         pub fn value(&self) -> usize {
             self.0
         }
-    }
-    impl One for ModP {
-        fn one() -> Self {
-            return ModP(1);
+        pub fn to_modm(&self) -> crate::dynamic_modint::ModM<usize> {
+            crate::dynamic_modint::ModM::new(self.0, M::MODULUS)
+        }
+        pub fn to_modm_u128(&self) -> crate::dynamic_modint::ModM<u128> {
+            crate::dynamic_modint::ModM::new(self.0 as u128, M::MODULUS as u128)
         }
     }
-    impl Add for ModP {
+    impl<M> One for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn one() -> Self {
+            return ModP(1, PhantomData);
+        }
+    }
+    impl<M> Add for ModP<M>
+    where
+        M: Modulus,
+    {
         type Output = Self;
         fn add(self, rhs: Self) -> Self {
-            return ModP((self.0 + rhs.0) % MODULUS);
+            return ModP((self.0 + rhs.0) % M::MODULUS, PhantomData);
         }
     }
-    impl Sub for ModP {
+    impl<M> Sub for ModP<M>
+    where
+        M: Modulus,
+    {
         type Output = Self;
         fn sub(self, rhs: Self) -> Self {
-            return ModP((self.0 + MODULUS - rhs.0) % MODULUS);
+            return ModP((self.0 + M::MODULUS - rhs.0) % M::MODULUS, PhantomData);
         }
     }
-    impl Mul for ModP {
+    impl<M> Mul for ModP<M>
+    where
+        M: Modulus,
+    {
         type Output = Self;
         fn mul(self, rhs: Self) -> Self {
-            return ModP((self.0 * rhs.0) % MODULUS);
+            return ModP((self.0 * rhs.0) % M::MODULUS, PhantomData);
         }
     }
-    impl Div for ModP {
+    impl<M> Div for ModP<M>
+    where
+        M: Modulus,
+    {
         type Output = Self;
         fn div(self, rhs: Self) -> Self {
             if rhs.0 == 0 {
                 panic!("Tried to divide by ModP(0)!");
             }
-            let rhs_inv = pow(rhs, MODULUS - 2);
+            let rhs_inv = pow(rhs, M::MODULUS - 2);
             return self * rhs_inv;
         }
     }
 
     #[derive(Clone, Debug)]
-    pub struct CombinatoricsTable {
-        factorial_table: Vec<ModP>,
-        stirling_second_table: Vec<Vec<ModP>>,
+    pub struct CombinatoricsTable<M>
+    where
+        M: Modulus,
+    {
+        factorial_table: Vec<ModP<M>>,
+        stirling_second_table: Vec<Vec<ModP<M>>>,
     }
-    impl CombinatoricsTable {
+    impl<M> CombinatoricsTable<M>
+    where
+        M: Modulus,
+    {
         pub fn new(src_max: usize, dist_max: usize) -> Self {
-            let mut factorial_table = vec![ModP(1)];
+            let mut factorial_table = vec![ModP(1, PhantomData)];
             for i in 1..=dist_max {
-                factorial_table.push(ModP(i) * factorial_table[i - 1]);
+                factorial_table.push(ModP(i, PhantomData) * factorial_table[i - 1]);
             }
-            let mut stirling_second_table: Vec<Vec<ModP>> = Vec::with_capacity(src_max + 1);
+            let mut stirling_second_table: Vec<Vec<_>> = Vec::with_capacity(src_max + 1);
             for n in 0..=src_max {
-                let mut st_temp = vec![ModP(0); dist_max + 1];
+                let mut st_temp = vec![ModP(0, PhantomData); dist_max + 1];
                 for k in 0..=dist_max {
                     if n == 0 && k == 0 {
-                        st_temp[k] = ModP(1);
+                        st_temp[k] = ModP(1, PhantomData);
                     } else if n == 0 || k == 0 {
-                        st_temp[k] = ModP(0);
+                        st_temp[k] = ModP(0, PhantomData);
                     } else {
-                        st_temp[k] = ModP(k) * stirling_second_table[n - 1][k]
+                        st_temp[k] = ModP(k, PhantomData) * stirling_second_table[n - 1][k]
                             + stirling_second_table[n - 1][k - 1];
                     }
                 }
@@ -108,40 +165,40 @@ mod static_prime_modint {
                 stirling_second_table,
             }
         }
-        pub fn factorial(&self, n: usize) -> ModP {
+        pub fn factorial(&self, n: usize) -> ModP<M> {
             if self.factorial_table.len() > n {
                 return self.factorial_table[n];
             } else {
                 panic!("factorial_table is not long enough");
             }
         }
-        pub fn stirling_second(&self, n: usize, k: usize) -> ModP {
+        pub fn stirling_second(&self, n: usize, k: usize) -> ModP<M> {
             if self.stirling_second_table.len() > n && self.stirling_second_table[n].len() > k {
                 return self.stirling_second_table[n][k];
             } else {
                 panic!("stirling_second_table is not large enough");
             }
         }
-        pub fn tw_any(&self, src: usize, dist: usize) -> ModP {
-            pow(ModP(dist), src)
+        pub fn tw_any(&self, src: usize, dist: usize) -> ModP<M> {
+            pow(ModP(dist, PhantomData), src)
         }
-        pub fn tw_inj(&self, src: usize, dist: usize) -> ModP {
+        pub fn tw_inj(&self, src: usize, dist: usize) -> ModP<M> {
             if src > dist {
-                ModP(0)
+                ModP(0, PhantomData)
             } else {
                 self.factorial(dist) / self.factorial(dist - src)
             }
         }
-        pub fn tw_surj(&self, src: usize, dist: usize) -> ModP {
+        pub fn tw_surj(&self, src: usize, dist: usize) -> ModP<M> {
             if src < dist {
-                ModP(0)
+                ModP(0, PhantomData)
             } else {
                 self.factorial(dist) * self.stirling_second(src, dist)
             }
         }
-        pub fn tw_inj_srcsym(&self, src: usize, dist: usize) -> ModP {
+        pub fn tw_inj_srcsym(&self, src: usize, dist: usize) -> ModP<M> {
             if src > dist {
-                ModP(0)
+                ModP(0, PhantomData)
             } else {
                 self.factorial(dist) / self.factorial(src) / self.factorial(dist - src)
             }
@@ -155,19 +212,22 @@ mod static_prime_modint {
     // The inverse can be calculated by doing the same
     // with the original zeta's inverse as zeta
     // and dividing by f.len()
-    pub fn number_theoretic_transformation(
-        f: &Vec<ModP>,
+    pub fn number_theoretic_transformation<M>(
+        f: &Vec<ModP<M>>,
         start: usize,
         skip: usize,
-        zeta: ModP,
-    ) -> Vec<ModP> {
+        zeta: ModP<M>,
+    ) -> Vec<ModP<M>>
+    where
+        M: Modulus,
+    {
         let n = f.len() / skip;
         if n == 1 {
             return vec![f[start]];
         }
         let g0 = number_theoretic_transformation(f, start, skip * 2, zeta * zeta);
         let g1 = number_theoretic_transformation(f, start + skip, skip * 2, zeta * zeta);
-        let mut pow_zeta = ModP(1);
+        let mut pow_zeta = ModP(1, PhantomData);
         let mut g = Vec::new();
         for i in 0..n {
             g.push(g0[i % (n / 2)] + pow_zeta * g1[i % (n / 2)]);
@@ -177,9 +237,12 @@ mod static_prime_modint {
     }
 
     // convolution function
-    pub fn convolution(aa: &[ModP], bb: &[ModP]) -> Vec<ModP> {
-        let mut a: Vec<ModP> = aa.iter().cloned().collect();
-        let mut b: Vec<ModP> = bb.iter().cloned().collect();
+    pub fn convolution<M>(aa: &[ModP<M>], bb: &[ModP<M>]) -> Vec<ModP<M>>
+    where
+        M: Modulus,
+    {
+        let mut a: Vec<ModP<M>> = aa.iter().cloned().collect();
+        let mut b: Vec<ModP<M>> = bb.iter().cloned().collect();
         let mut nn = 1;
         let mut nn_index = 0;
         while nn < aa.len() + bb.len() - 1 {
@@ -187,15 +250,14 @@ mod static_prime_modint {
             nn_index += 1;
         }
         while a.len() < nn {
-            a.push(ModP(0));
+            a.push(ModP(0, PhantomData));
         }
         while b.len() < nn {
-            b.push(ModP(0));
+            b.push(ModP(0, PhantomData));
         }
-        debug_assert_eq!(MODULUS, 998244353); // TODO: support other primes
-        debug_assert!(nn_index <= 23);
-        let mut zeta = ModP(15311432); // a primitive 2^23-th root of unity
-        while nn_index < 23 {
+        debug_assert!(nn_index <= M::MAX_NN_INDEX);
+        let mut zeta = ModP(M::ZETA, PhantomData); // a primitive 2^MAX_NN_INDEX-th root of unity
+        while nn_index < M::MAX_NN_INDEX {
             zeta = zeta * zeta;
             nn_index += 1;
         }
@@ -206,9 +268,9 @@ mod static_prime_modint {
         for i in 0..nn {
             chat.push(ahat[i] * bhat[i]);
         }
-        let mut c = number_theoretic_transformation(&chat, 0, 1, ModP(1) / zeta);
+        let mut c = number_theoretic_transformation(&chat, 0, 1, ModP(1, PhantomData) / zeta);
         for ci in &mut c {
-            *ci = *ci / ModP(nn);
+            *ci = *ci / ModP(nn, PhantomData);
         }
         // Now c is the convolution
         for i in aa.len() + bb.len() - 1..c.len() {
@@ -234,6 +296,9 @@ mod dynamic_modint {
     {
         pub fn new(a: T, m: T) -> Self {
             ModM(a % m, m)
+        }
+        pub fn value(&self) -> T {
+            self.0
         }
     }
     pub fn pow_modm<T>(base: ModM<T>, index: usize) -> ModM<T>
@@ -292,7 +357,7 @@ mod dynamic_modint {
     // For a = aa mod m,
     // it computes (g mod m, b mod m),
     // that satisfies g = gcd(aa,m) and aa*b = g mod m
-    fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
+    pub fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
     where
         T: PrimInt + Unsigned + std::fmt::Debug,
     {
@@ -322,7 +387,7 @@ mod dynamic_modint {
     }
 
     // Two-term Chinese remainder theorem function
-    fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
+    pub fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
     where
         T: PrimInt + Unsigned + std::fmt::Debug,
     {
@@ -344,26 +409,74 @@ mod dynamic_modint {
             let d = dmm.0;
             debug_assert_eq!(d, gcd(m, mm));
             let x = xmm.0;
-            if a % d != b % d {
-                return None;
+            return crt_internal(a, b, m, mm, d, x);
+        }
+    }
+
+    // Two-slice Chinese remainder theorem function
+    // It assumes all the moduli are equal for each slice
+    pub fn crt_slice<T>(a: &[ModM<T>], b: &[ModM<T>]) -> Option<Vec<ModM<T>>>
+    where
+        T: PrimInt + Unsigned + std::fmt::Debug,
+    {
+        let mut result = vec![];
+        if a.len() == 0 || a.len() != b.len() {
+            return Some(result);
+        }
+        // Now a.len() == b.len() >= 1
+        result.reserve(a.len());
+        let m = a[0].1;
+        let mm = b[0].1;
+        if m == mm {
+            for i in 0..a.len() {
+                if a[i].0 == b[i].0 {
+                    result.push(a[i]);
+                } else {
+                    return None;
+                }
             }
-            let mmm = m * mm / d;
-            if a == b {
-                return Some(ModM(a, mmm));
-            } else if a < b {
-                let y = (b - a) / d;
-                let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
-                debug_assert_eq!(ans.0 % m, a);
-                debug_assert_eq!(ans.0 % mm, b);
-                return Some(ans);
-            } else {
-                // a > b
-                let y = (a - b) / d;
-                let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
-                debug_assert_eq!(ans.0 % m, a);
-                debug_assert_eq!(ans.0 % mm, b);
-                return Some(ans);
+        } else if m > mm {
+            return crt_slice(b, a);
+        } else {
+            // m < mm
+            let (dmm, xmm) = inv_gcd(ModM(m, mm));
+            let d = dmm.0;
+            debug_assert_eq!(d, gcd(m, mm));
+            let x = xmm.0;
+            for i in 0..a.len() {
+                if let Some(cmmm) = crt_internal(a[i].0, b[i].0, m, mm, d, x) {
+                    result.push(cmmm);
+                } else {
+                    return None;
+                }
             }
+        }
+        return Some(result);
+    }
+
+    fn crt_internal<T>(a: T, b: T, m: T, mm: T, d: T, x: T) -> Option<ModM<T>>
+    where
+        T: PrimInt + Unsigned + std::fmt::Debug,
+    {
+        if a % d != b % d {
+            return None;
+        }
+        let mmm = m * mm / d;
+        if a == b {
+            return Some(ModM(a, mmm));
+        } else if a < b {
+            let y = (b - a) / d;
+            let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
+            debug_assert_eq!(ans.0 % m, a);
+            debug_assert_eq!(ans.0 % mm, b);
+            return Some(ans);
+        } else {
+            // a > b
+            let y = (a - b) / d;
+            let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
+            debug_assert_eq!(ans.0 % m, a);
+            debug_assert_eq!(ans.0 % mm, b);
+            return Some(ans);
         }
     }
 
@@ -371,9 +484,9 @@ mod dynamic_modint {
     // lists Proth primes of the form
     // p = k * 2^n + 1
     // in the form
-    // n k p a.
-    // a^k is a primitive 2^n-th root of unity in mod p.
-    pub fn list_proth_primes(max: usize) {
+    // n k p a zeta.
+    // zeta = a^k is a primitive 2^n-th root of unity in mod p.
+    pub fn list_proth_primes(min: usize, max: usize) {
         for n in 1..64 {
             let two_n = 1 << n;
             if two_n >= max {
@@ -385,6 +498,9 @@ mod dynamic_modint {
                 if p > max {
                     break;
                 }
+                if p < min {
+                    continue;
+                }
                 let alist = vec![2, 3, 5, 7, 11, 13, 17, 19];
                 for a in alist {
                     if a >= p {
@@ -392,7 +508,8 @@ mod dynamic_modint {
                     }
                     let sym = pow_modm(ModM(a as u128, p as u128), (p - 1) / 2);
                     if sym.0 == (p - 1) as u128 {
-                        println!("{} {} {} {}", n, k, p, a);
+                        let zeta = pow_modm(ModM(a as u128, p as u128), k);
+                        println!("{} {} {} {} {}", n, k, p, a, zeta.0);
                         break;
                     }
                 }
@@ -406,6 +523,37 @@ mod dynamic_modint {
             println!("{} times: {}", i, aa.0);
             aa = aa * aa;
         }
+    }
+
+    // Calculate the smallest primitive root mod p
+    // and the corresponding discrete logarithm table
+    // The argument p must be a prime
+    // The dlog of a is in table[a-1]
+    // Time: O(p)
+    pub fn primitive_root(p: usize) -> (usize, Vec<usize>) {
+        // discrete_logarithm[a-1] = the dlog of a
+        // or 0 if a hasn't been occurred
+        let mut discrete_logarithm = vec![0; p - 1];
+        if p == 2 {
+            return (1, discrete_logarithm);
+        }
+        'a_loop: for a in 2..p {
+            if discrete_logarithm[a - 1] != 0 {
+                continue;
+            }
+            discrete_logarithm[a - 1] = 1;
+            let mut a_power = ModM(a, p);
+            // calculate a^2 to a^(p-2)
+            for i in 2..p - 1 {
+                a_power = a_power * ModM(a, p);
+                if a_power.0 == 1 {
+                    continue 'a_loop;
+                }
+                discrete_logarithm[a_power.0 - 1] = i;
+            }
+            return (a, discrete_logarithm);
+        }
+        panic!();
     }
 }
 
