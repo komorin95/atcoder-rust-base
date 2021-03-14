@@ -28,7 +28,7 @@ fn main() {
 mod static_prime_modint {
     use num_traits::{pow, One, PrimInt, Unsigned};
     use std::marker::PhantomData;
-    use std::ops::{Add, Div, Mul, Sub};
+    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
 
     pub trait Modulus: Copy + Eq + Ord + std::hash::Hash + std::fmt::Debug {
         const MODULUS: usize;
@@ -78,13 +78,19 @@ mod static_prime_modint {
         pub fn to_modm_u128(&self) -> crate::dynamic_modint::ModM<u128> {
             crate::dynamic_modint::ModM::new(self.0 as u128, M::MODULUS as u128)
         }
+        pub fn inverse(&self) -> Self {
+            if self.0 == 0 {
+                panic!("Tried to divide by ModP(0)!");
+            }
+            return pow(*self, M::MODULUS - 2);
+        }
     }
     impl<M> One for ModP<M>
     where
         M: Modulus,
     {
         fn one() -> Self {
-            return ModP(1, PhantomData);
+            ModP(1, PhantomData)
         }
     }
     impl<M> Add for ModP<M>
@@ -93,7 +99,34 @@ mod static_prime_modint {
     {
         type Output = Self;
         fn add(self, rhs: Self) -> Self {
-            return ModP((self.0 + rhs.0) % M::MODULUS, PhantomData);
+            ModP((self.0 + rhs.0) % M::MODULUS, PhantomData)
+        }
+    }
+    impl<M> Add<usize> for ModP<M>
+    where
+        M: Modulus,
+    {
+        type Output = Self;
+        fn add(self, rhs: usize) -> Self {
+            ModP((self.0 + (rhs % M::MODULUS)) % M::MODULUS, PhantomData)
+        }
+    }
+    impl<M> AddAssign for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn add_assign(&mut self, rhs: Self) {
+            self.0 += rhs.0;
+            self.0 %= M::MODULUS;
+        }
+    }
+    impl<M> AddAssign<usize> for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn add_assign(&mut self, rhs: usize) {
+            self.0 += rhs % M::MODULUS;
+            self.0 %= M::MODULUS;
         }
     }
     impl<M> Sub for ModP<M>
@@ -102,7 +135,39 @@ mod static_prime_modint {
     {
         type Output = Self;
         fn sub(self, rhs: Self) -> Self {
-            return ModP((self.0 + M::MODULUS - rhs.0) % M::MODULUS, PhantomData);
+            ModP((self.0 + M::MODULUS - rhs.0) % M::MODULUS, PhantomData)
+        }
+    }
+    impl<M> Sub<usize> for ModP<M>
+    where
+        M: Modulus,
+    {
+        type Output = Self;
+        fn sub(self, rhs: usize) -> Self {
+            ModP(
+                (self.0 + M::MODULUS - (rhs % M::MODULUS)) % M::MODULUS,
+                PhantomData,
+            )
+        }
+    }
+    impl<M> SubAssign for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn sub_assign(&mut self, rhs: Self) {
+            self.0 += M::MODULUS;
+            self.0 -= rhs.0;
+            self.0 %= M::MODULUS;
+        }
+    }
+    impl<M> SubAssign<usize> for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn sub_assign(&mut self, rhs: usize) {
+            self.0 += M::MODULUS;
+            self.0 -= rhs % M::MODULUS;
+            self.0 %= M::MODULUS;
         }
     }
     impl<M> Mul for ModP<M>
@@ -111,20 +176,34 @@ mod static_prime_modint {
     {
         type Output = Self;
         fn mul(self, rhs: Self) -> Self {
-            return ModP((self.0 * rhs.0) % M::MODULUS, PhantomData);
+            ModP((self.0 * rhs.0) % M::MODULUS, PhantomData)
         }
     }
-    impl<M> Div for ModP<M>
+    impl<M> Mul<usize> for ModP<M>
     where
         M: Modulus,
     {
         type Output = Self;
-        fn div(self, rhs: Self) -> Self {
-            if rhs.0 == 0 {
-                panic!("Tried to divide by ModP(0)!");
-            }
-            let rhs_inv = pow(rhs, M::MODULUS - 2);
-            return self * rhs_inv;
+        fn mul(self, rhs: usize) -> Self {
+            ModP((self.0 * (rhs % M::MODULUS)) % M::MODULUS, PhantomData)
+        }
+    }
+    impl<M> MulAssign for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn mul_assign(&mut self, rhs: Self) {
+            self.0 *= rhs.0;
+            self.0 %= M::MODULUS;
+        }
+    }
+    impl<M> MulAssign<usize> for ModP<M>
+    where
+        M: Modulus,
+    {
+        fn mul_assign(&mut self, rhs: usize) {
+            self.0 *= (rhs % M::MODULUS);
+            self.0 %= M::MODULUS;
         }
     }
 
@@ -186,7 +265,7 @@ mod static_prime_modint {
             if src > dist {
                 ModP(0, PhantomData)
             } else {
-                self.factorial(dist) / self.factorial(dist - src)
+                self.factorial(dist) * self.factorial(dist - src).inverse()
             }
         }
         pub fn tw_surj(&self, src: usize, dist: usize) -> ModP<M> {
@@ -200,7 +279,9 @@ mod static_prime_modint {
             if src > dist {
                 ModP(0, PhantomData)
             } else {
-                self.factorial(dist) / self.factorial(src) / self.factorial(dist - src)
+                self.factorial(dist)
+                    * self.factorial(src).inverse()
+                    * self.factorial(dist - src).inverse()
             }
         }
     }
@@ -276,9 +357,9 @@ mod static_prime_modint {
         for i in 0..nn {
             chat.push(ahat[i] * bhat[i]);
         }
-        let mut c = number_theoretic_transformation(&chat, ModP(1, PhantomData) / zeta);
+        let mut c = number_theoretic_transformation(&chat, ModP(1, PhantomData) * zeta.inverse());
         for ci in &mut c {
-            *ci = *ci / ModP(nn, PhantomData);
+            *ci = *ci * ModP(nn, PhantomData).inverse();
         }
         // Now c is the convolution
         for i in aa.len() + bb.len() - 1..c.len() {
