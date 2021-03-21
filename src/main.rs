@@ -807,8 +807,10 @@ where
         for k in 0..n {
             data[k + nn - 1] = sl[k];
         }
-        for j in (0..nn - 1).rev() {
-            data[j] = (monoid_op_closure)(data[j * 2 + 1], data[j * 2 + 2]);
+        if n >= 2 {
+            for j in (0..=(n + nn - 3) / 2).rev() {
+                data[j] = (monoid_op_closure)(data[j * 2 + 1], data[j * 2 + 2]);
+            }
         }
         Self {
             data,
