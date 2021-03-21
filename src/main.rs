@@ -797,6 +797,26 @@ where
         return this;
     }
 
+    fn from_slice(sl: &[A], monoid_unit_closure: CUnit, monoid_op_closure: CMult) -> Self {
+        let n = sl.len();
+        let mut nn = 1;
+        while nn < n {
+            nn *= 2;
+        }
+        let mut data = vec![monoid_unit_closure(); 2 * nn - 1];
+        for k in 0..n {
+            data[k + nn - 1] = sl[k];
+        }
+        for j in (0..nn - 1).rev() {
+            data[j] = (monoid_op_closure)(data[j * 2 + 1], data[j * 2 + 2]);
+        }
+        Self {
+            data,
+            monoid_unit_closure,
+            monoid_op_closure,
+        }
+    }
+
     fn update(&mut self, k: usize, a: A) {
         let n = (self.data.len() + 1) / 2;
         let mut k = k + n - 1;
