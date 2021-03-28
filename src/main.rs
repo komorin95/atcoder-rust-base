@@ -648,14 +648,17 @@ mod dynamic_modint {
     }
 }
 
-// Binary search for closures
-// returns the value i where f(i) == true but f(i+1) == false
-// if forall i f(i) == true, returns max_value
+/// Binary search for closures.
+/// Returns the value i where f(i) == true but f(i+1) == false.
+/// If forall i f(i) == true, returns max_value.
 #[allow(dead_code)]
-fn closure_binary_search<T>(f: T, min_value: usize, max_value: usize) -> usize
+fn closure_binary_search<T, U>(f: T, min_value: U, max_value: U) -> U
 where
-    T: Fn(usize) -> bool,
+    T: Fn(U) -> bool,
+    U: PrimInt + Unsigned,
 {
+    let u1 = U::one();
+    let u2 = u1 + u1;
     if !f(min_value) {
         panic!("Check the condition for closure_binary_search()");
     }
@@ -664,8 +667,8 @@ where
     }
     let mut min_value = min_value;
     let mut max_value = max_value;
-    while min_value + 1 < max_value {
-        let check_value = min_value + (max_value - min_value) / 2;
+    while min_value + u1 < max_value {
+        let check_value = min_value + (max_value - min_value) / u2;
         if f(check_value) {
             min_value = check_value;
         } else {
@@ -674,6 +677,7 @@ where
     }
     return min_value;
 }
+
 
 // Iterator of proper subsets
 // Caution: it does NOT starts with the universal set itself!
