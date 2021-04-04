@@ -26,216 +26,97 @@ fn main() {
     }
 }
 
+
 #[allow(unused)]
 mod static_prime_modint {
-    use num_traits::{pow, One, PrimInt, Unsigned};
+    pub use crate::modint::*;
+    use num_traits::{pow, NumAssignOps, One, PrimInt, Unsigned};
     use std::marker::PhantomData;
     use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
 
-    pub trait Modulus: Copy + Eq + Ord + std::hash::Hash + std::fmt::Debug {
-        const MODULUS: usize;
-        const ZETA: usize;
+    pub trait NttFriendlyModulus<T>: StaticModulus<T>
+    where
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        const ZETA: T;
         const MAX_NN_INDEX: usize;
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-    pub enum Mod10 {}
-    impl Modulus for Mod10 {
-        const MODULUS: usize = 1000000007;
-        const ZETA: usize = 0;
-        const MAX_NN_INDEX: usize = 0;
+    pub struct Mod10();
+    impl StaticModulus<usize> for Mod10 {
+        fn singleton() -> Self {
+            Mod10()
+        }
     }
+    impl Modulus<usize> for Mod10 {
+        fn modulus(&self) -> usize {
+            1_000_000_007
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-    pub enum Mod9 {}
-    impl Modulus for Mod9 {
-        const MODULUS: usize = 998244353;
+    pub struct Mod9();
+    impl NttFriendlyModulus<usize> for Mod9 {
         const ZETA: usize = 15311432;
         const MAX_NN_INDEX: usize = 23;
     }
+    impl StaticModulus<usize> for Mod9 {
+        fn singleton() -> Self {
+            Mod9()
+        }
+    }
+    impl Modulus<usize> for Mod9 {
+        fn modulus(&self) -> usize {
+            998_244_353
+        }
+    }
+
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-    pub enum Mod9_2 {}
-    impl Modulus for Mod9_2 {
-        const MODULUS: usize = 985661441;
+    pub struct Mod9_2();
+    impl NttFriendlyModulus<usize> for Mod9_2 {
         const ZETA: usize = 79986183;
         const MAX_NN_INDEX: usize = 22;
     }
-
-    #[derive(Clone, Copy, PartialEq, Debug)]
-    pub struct ModP<M>(usize, PhantomData<M>)
-    where
-        M: Modulus;
-    impl<M> ModP<M>
-    where
-        M: Modulus,
-    {
-        pub fn new(x: usize) -> Self {
-            ModP(x % M::MODULUS, PhantomData)
-        }
-        pub fn value(&self) -> usize {
-            self.0
-        }
-        pub fn to_modm(&self) -> crate::dynamic_modint::ModM<usize> {
-            crate::dynamic_modint::ModM::new(self.0, M::MODULUS)
-        }
-        pub fn to_modm_u128(&self) -> crate::dynamic_modint::ModM<u128> {
-            crate::dynamic_modint::ModM::new(self.0 as u128, M::MODULUS as u128)
-        }
-        pub fn inverse(&self) -> Self {
-            if self.0 == 0 {
-                panic!("Tried to divide by ModP(0)!");
-            }
-            return pow(*self, M::MODULUS - 2);
+    impl StaticModulus<usize> for Mod9_2 {
+        fn singleton() -> Self {
+            Mod9_2()
         }
     }
-    impl<M> One for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn one() -> Self {
-            ModP(1, PhantomData)
-        }
-    }
-    impl<M> Add for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn add(self, rhs: Self) -> Self {
-            ModP((self.0 + rhs.0) % M::MODULUS, PhantomData)
-        }
-    }
-    impl<M> Add<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn add(self, rhs: usize) -> Self {
-            ModP((self.0 + (rhs % M::MODULUS)) % M::MODULUS, PhantomData)
-        }
-    }
-    impl<M> AddAssign for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn add_assign(&mut self, rhs: Self) {
-            self.0 += rhs.0;
-            self.0 %= M::MODULUS;
-        }
-    }
-    impl<M> AddAssign<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn add_assign(&mut self, rhs: usize) {
-            self.0 += rhs % M::MODULUS;
-            self.0 %= M::MODULUS;
-        }
-    }
-    impl<M> Sub for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn sub(self, rhs: Self) -> Self {
-            ModP((self.0 + M::MODULUS - rhs.0) % M::MODULUS, PhantomData)
-        }
-    }
-    impl<M> Sub<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn sub(self, rhs: usize) -> Self {
-            ModP(
-                (self.0 + M::MODULUS - (rhs % M::MODULUS)) % M::MODULUS,
-                PhantomData,
-            )
-        }
-    }
-    impl<M> SubAssign for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn sub_assign(&mut self, rhs: Self) {
-            self.0 += M::MODULUS;
-            self.0 -= rhs.0;
-            self.0 %= M::MODULUS;
-        }
-    }
-    impl<M> SubAssign<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn sub_assign(&mut self, rhs: usize) {
-            self.0 += M::MODULUS;
-            self.0 -= rhs % M::MODULUS;
-            self.0 %= M::MODULUS;
-        }
-    }
-    impl<M> Mul for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn mul(self, rhs: Self) -> Self {
-            ModP((self.0 * rhs.0) % M::MODULUS, PhantomData)
-        }
-    }
-    impl<M> Mul<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        type Output = Self;
-        fn mul(self, rhs: usize) -> Self {
-            ModP((self.0 * (rhs % M::MODULUS)) % M::MODULUS, PhantomData)
-        }
-    }
-    impl<M> MulAssign for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn mul_assign(&mut self, rhs: Self) {
-            self.0 *= rhs.0;
-            self.0 %= M::MODULUS;
-        }
-    }
-    impl<M> MulAssign<usize> for ModP<M>
-    where
-        M: Modulus,
-    {
-        fn mul_assign(&mut self, rhs: usize) {
-            self.0 *= (rhs % M::MODULUS);
-            self.0 %= M::MODULUS;
+    impl Modulus<usize> for Mod9_2 {
+        fn modulus(&self) -> usize {
+            998_244_353
         }
     }
 
     #[derive(Clone, Debug)]
     pub struct CombinatoricsTable<M>
     where
-        M: Modulus,
+        M: StaticModulus<usize>,
     {
-        factorial_table: Vec<ModP<M>>,
-        stirling_second_table: Vec<Vec<ModP<M>>>,
+        factorial_table: Vec<ModInt<usize, M>>,
+        stirling_second_table: Vec<Vec<ModInt<usize, M>>>,
     }
+    use std::convert::TryFrom;
     impl<M> CombinatoricsTable<M>
     where
-        M: Modulus,
+        M: StaticModulus<usize>,
     {
         pub fn new(src_max: usize, dist_max: usize) -> Self {
-            let mut factorial_table = vec![ModP(1, PhantomData)];
+            let mut factorial_table = vec![ModInt::new(1)];
             for i in 1..=dist_max {
-                factorial_table.push(ModP(i, PhantomData) * factorial_table[i - 1]);
+                factorial_table.push(ModInt::new(i) * factorial_table[i - 1]);
             }
             let mut stirling_second_table: Vec<Vec<_>> = Vec::with_capacity(src_max + 1);
             for n in 0..=src_max {
-                let mut st_temp = vec![ModP(0, PhantomData); dist_max + 1];
+                let mut st_temp = vec![ModInt::new(0); dist_max + 1];
                 for k in 0..=dist_max {
                     if n == 0 && k == 0 {
-                        st_temp[k] = ModP(1, PhantomData);
+                        st_temp[k] = ModInt::new(1);
                     } else if n == 0 || k == 0 {
-                        st_temp[k] = ModP(0, PhantomData);
+                        st_temp[k] = ModInt::new(0);
                     } else {
-                        st_temp[k] = ModP(k, PhantomData) * stirling_second_table[n - 1][k]
+                        st_temp[k] = ModInt::new(k) * stirling_second_table[n - 1][k]
                             + stirling_second_table[n - 1][k - 1];
                     }
                 }
@@ -246,40 +127,40 @@ mod static_prime_modint {
                 stirling_second_table,
             }
         }
-        pub fn factorial(&self, n: usize) -> ModP<M> {
+        pub fn factorial(&self, n: usize) -> ModInt<usize, M> {
             if self.factorial_table.len() > n {
                 return self.factorial_table[n];
             } else {
                 panic!("factorial_table is not long enough");
             }
         }
-        pub fn stirling_second(&self, n: usize, k: usize) -> ModP<M> {
+        pub fn stirling_second(&self, n: usize, k: usize) -> ModInt<usize, M> {
             if self.stirling_second_table.len() > n && self.stirling_second_table[n].len() > k {
                 return self.stirling_second_table[n][k];
             } else {
                 panic!("stirling_second_table is not large enough");
             }
         }
-        pub fn tw_any(&self, src: usize, dist: usize) -> ModP<M> {
-            pow(ModP(dist, PhantomData), src)
+        pub fn tw_any(&self, src: usize, dist: usize) -> ModInt<usize, M> {
+            ModInt::new(dist).pow(src)
         }
-        pub fn tw_inj(&self, src: usize, dist: usize) -> ModP<M> {
+        pub fn tw_inj(&self, src: usize, dist: usize) -> ModInt<usize, M> {
             if src > dist {
-                ModP(0, PhantomData)
+                ModInt::new(0)
             } else {
                 self.factorial(dist) * self.factorial(dist - src).inverse()
             }
         }
-        pub fn tw_surj(&self, src: usize, dist: usize) -> ModP<M> {
+        pub fn tw_surj(&self, src: usize, dist: usize) -> ModInt<usize, M> {
             if src < dist {
-                ModP(0, PhantomData)
+                ModInt::new(0)
             } else {
                 self.factorial(dist) * self.stirling_second(src, dist)
             }
         }
-        pub fn tw_inj_srcsym(&self, src: usize, dist: usize) -> ModP<M> {
+        pub fn tw_inj_srcsym(&self, src: usize, dist: usize) -> ModInt<usize, M> {
             if src > dist {
-                ModP(0, PhantomData)
+                ModInt::new(0)
             } else {
                 self.factorial(dist)
                     * self.factorial(src).inverse()
@@ -294,21 +175,26 @@ mod static_prime_modint {
     // The inverse can be calculated by doing the same
     // with the original zeta's inverse as zeta
     // and dividing by f.len()
-    pub fn number_theoretic_transformation<M>(f: &[ModP<M>], zeta: ModP<M>) -> Vec<ModP<M>>
+    pub fn number_theoretic_transformation<T, M>(
+        f: &[ModInt<T, M>],
+        zeta: ModInt<T, M>,
+    ) -> Vec<ModInt<T, M>>
     where
-        M: Modulus,
+        M: StaticModulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
     {
         // bit-reversal
         let bit_colength = f.len().leading_zeros() + 1;
-        let mut f_rev: Vec<ModP<M>> = vec![ModP::new(0); f.len()];
+        let mut f_rev: Vec<ModInt<T, M>> = vec![ModInt::new(T::zero()); f.len()];
         for i in 0..f.len() {
             f_rev[i.reverse_bits() >> bit_colength] = f[i];
         }
         sub(&mut f_rev, zeta);
         return f_rev;
-        fn sub<M>(f: &mut [ModP<M>], zeta: ModP<M>)
+        fn sub<T, M>(f: &mut [ModInt<T, M>], zeta: ModInt<T, M>)
         where
-            M: Modulus,
+            M: StaticModulus<T>,
+            T: NumAssignOps + PrimInt + Unsigned,
         {
             let n = f.len();
             if n == 1 {
@@ -316,7 +202,7 @@ mod static_prime_modint {
             }
             sub(&mut f[..n / 2], zeta * zeta);
             sub(&mut f[n / 2..], zeta * zeta);
-            let mut pow_zeta = ModP::<M>(1, PhantomData);
+            let mut pow_zeta = ModInt::new(T::one());
             for i in 0..n / 2 {
                 let g0 = f[i];
                 let g1 = f[i + n / 2];
@@ -328,12 +214,12 @@ mod static_prime_modint {
     }
 
     // convolution function
-    pub fn convolution<M>(aa: &[ModP<M>], bb: &[ModP<M>]) -> Vec<ModP<M>>
+    pub fn convolution<M>(aa: &[ModInt<usize, M>], bb: &[ModInt<usize, M>]) -> Vec<ModInt<usize, M>>
     where
-        M: Modulus,
+        M: NttFriendlyModulus<usize>,
     {
-        let mut a: Vec<ModP<M>> = aa.iter().cloned().collect();
-        let mut b: Vec<ModP<M>> = bb.iter().cloned().collect();
+        let mut a: Vec<_> = aa.iter().cloned().collect();
+        let mut b: Vec<_> = bb.iter().cloned().collect();
         let mut nn = 1;
         let mut nn_index = 0;
         while nn < aa.len() + bb.len() - 1 {
@@ -341,13 +227,13 @@ mod static_prime_modint {
             nn_index += 1;
         }
         while a.len() < nn {
-            a.push(ModP(0, PhantomData));
+            a.push(ModInt::new(0));
         }
         while b.len() < nn {
-            b.push(ModP(0, PhantomData));
+            b.push(ModInt::new(0));
         }
         debug_assert!(nn_index <= M::MAX_NN_INDEX);
-        let mut zeta = ModP(M::ZETA, PhantomData); // a primitive 2^MAX_NN_INDEX-th root of unity
+        let mut zeta = ModInt::new(M::ZETA); // a primitive 2^MAX_NN_INDEX-th root of unity
         while nn_index < M::MAX_NN_INDEX {
             zeta = zeta * zeta;
             nn_index += 1;
@@ -359,15 +245,15 @@ mod static_prime_modint {
         for i in 0..nn {
             chat.push(ahat[i] * bhat[i]);
         }
-        let mut c = number_theoretic_transformation(&chat, ModP(1, PhantomData) * zeta.inverse());
+        let mut c = number_theoretic_transformation(&chat, ModInt::new(1) * zeta.inverse());
         for ci in &mut c {
-            *ci = *ci * ModP(nn, PhantomData).inverse();
+            *ci = *ci * ModInt::new(nn).inverse();
         }
         // Now c is the convolution
         for i in aa.len() + bb.len() - 1..c.len() {
-            debug_assert_eq!(c[i], ModP::new(0));
+            debug_assert!(c[i] == ModInt::new(0));
         }
-        c.resize(aa.len() + bb.len() - 1, ModP::new(0));
+        c.resize(aa.len() + bb.len() - 1, ModInt::new(0));
         return c;
     }
 }
@@ -648,17 +534,183 @@ mod dynamic_modint {
     }
 }
 
-/// Binary search for closures.
-/// Returns the value i where f(i) == true but f(i+1) == false.
-/// If forall i f(i) == true, returns max_value.
+#[allow(unused)]
+mod modint {
+    use num_traits::{NumAssignOps, PrimInt, Unsigned};
+    use std::marker::PhantomData;
+    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
+
+    pub trait Modulus<T>: Copy + Eq
+    where
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn modulus(&self) -> T;
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+    pub struct ModDyn<T>(T);
+    impl<T> Modulus<T> for ModDyn<T>
+    where
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn modulus(&self) -> T {
+            self.0
+        }
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+    pub struct ModInt<T, M>(T, M)
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned;
+    pub trait StaticModulus<T>: Modulus<T>
+    where
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn singleton() -> Self;
+    }
+    impl<T, M> ModInt<T, M>
+    where
+        M: StaticModulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        pub fn new(x: T) -> Self {
+            ModInt(x % M::singleton().modulus(), M::singleton())
+        }
+    }
+    impl<T> ModInt<T, ModDyn<T>>
+    where
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        pub fn new_with(x: T, m: T) -> Self {
+            ModInt(x % m, ModDyn(m))
+        }
+    }
+    impl<T, M> ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        pub fn value(&self) -> T {
+            self.0
+        }
+        pub fn pow(&self, index: usize) -> Self {
+            if index == 0 {
+                return ModInt(T::one(), self.1);
+            } else {
+                if index % 2 == 0 {
+                    let half = self.pow(index / 2);
+                    return half * half;
+                } else {
+                    let half = self.pow(index / 2);
+                    return half * half * *self;
+                }
+            }
+        }
+    }
+    impl<M> ModInt<usize, M>
+    where
+        M: StaticModulus<usize>,
+    {
+        pub fn inverse(&self) -> Self {
+            self.pow(self.1.modulus() - 2)
+        }
+    }
+
+    impl<T, M> AddAssign<T> for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn add_assign(&mut self, rhs: T) {
+            self.0 += rhs % self.1.modulus();
+            self.0 %= self.1.modulus();
+        }
+    }
+    impl<T, M> AddAssign for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn add_assign(&mut self, rhs: Self) {
+            self.0 += rhs.0;
+            self.0 %= self.1.modulus();
+        }
+    }
+    impl<T, M> SubAssign<T> for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn sub_assign(&mut self, rhs: T) {
+            self.0 += self.1.modulus();
+            self.0 -= rhs % self.1.modulus();
+            self.0 %= self.1.modulus();
+        }
+    }
+    impl<T, M> SubAssign for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn sub_assign(&mut self, rhs: Self) {
+            self.0 += self.1.modulus();
+            self.0 -= rhs.0;
+            self.0 %= self.1.modulus();
+        }
+    }
+    impl<T, M> MulAssign<T> for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn mul_assign(&mut self, rhs: T) {
+            self.0 *= (rhs % self.1.modulus());
+            self.0 %= self.1.modulus();
+        }
+    }
+    impl<T, M> MulAssign for ModInt<T, M>
+    where
+        M: Modulus<T>,
+        T: NumAssignOps + PrimInt + Unsigned,
+    {
+        fn mul_assign(&mut self, rhs: Self) {
+            self.0 *= rhs.0;
+            self.0 %= self.1.modulus();
+        }
+    }
+    macro_rules! impl_op_from_opassign {
+        ($op:ident, $opname:ident, $opassignmane:ident, $rhstype:ident) => {
+            impl<T, M> $op<$rhstype> for ModInt<T, M>
+            where
+                M: Modulus<T>,
+                T: NumAssignOps + PrimInt + Unsigned,
+            {
+                type Output = Self;
+                fn $opname(self, rhs: $rhstype) -> Self {
+                    let mut temp = self.clone();
+                    temp.$opassignmane(rhs);
+                    temp
+                }
+            }
+        };
+    }
+    impl_op_from_opassign!(Add, add, add_assign, T);
+    impl_op_from_opassign!(Sub, sub, sub_assign, T);
+    impl_op_from_opassign!(Mul, mul, mul_assign, T);
+    impl_op_from_opassign!(Add, add, add_assign, Self);
+    impl_op_from_opassign!(Sub, sub, sub_assign, Self);
+    impl_op_from_opassign!(Mul, mul, mul_assign, Self);
+}
+
+// Binary search for closures
+// returns the value i where f(i) == true but f(i+1) == false
+// if forall i f(i) == true, returns max_value
 #[allow(dead_code)]
-fn closure_binary_search<T, U>(f: T, min_value: U, max_value: U) -> U
+fn closure_binary_search<T>(f: T, min_value: usize, max_value: usize) -> usize
 where
-    T: Fn(U) -> bool,
-    U: PrimInt + Unsigned,
+    T: Fn(usize) -> bool,
 {
-    let u1 = U::one();
-    let u2 = u1 + u1;
     if !f(min_value) {
         panic!("Check the condition for closure_binary_search()");
     }
@@ -667,8 +719,8 @@ where
     }
     let mut min_value = min_value;
     let mut max_value = max_value;
-    while min_value + u1 < max_value {
-        let check_value = min_value + (max_value - min_value) / u2;
+    while min_value + 1 < max_value {
+        let check_value = min_value + (max_value - min_value) / 2;
         if f(check_value) {
             min_value = check_value;
         } else {
