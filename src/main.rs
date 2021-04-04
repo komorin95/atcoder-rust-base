@@ -14,9 +14,9 @@ macro_rules! debug_eprintln {
     ($p:tt, $($x:expr),*) => {};
 }
 
-use proconio::{fastout, input};
 use itertools::Itertools;
 use proconio::marker::{Bytes, Usize1};
+use proconio::{fastout, input};
 
 #[fastout]
 fn main() {
@@ -678,7 +678,6 @@ where
     return min_value;
 }
 
-
 // Iterator of proper subsets
 // Caution: it does NOT starts with the universal set itself!
 struct SubsetIterator {
@@ -707,12 +706,10 @@ impl Iterator for SubsetIterator {
     }
 }
 
-use std::cell::Cell;
-
 #[derive(Debug, Clone)]
 struct EquivalenceRelation {
-    parent: Vec<Cell<usize>>,
-    rank: Vec<Cell<usize>>,
+    parent: Vec<std::cell::Cell<usize>>,
+    size: Vec<usize>,
 }
 
 #[allow(dead_code)]
@@ -720,10 +717,10 @@ impl EquivalenceRelation {
     fn new(n: usize) -> Self {
         let mut parent = Vec::with_capacity(n);
         for i in 0..n {
-            parent.push(Cell::new(i));
+            parent.push(std::cell::Cell::new(i));
         }
-        let rank = vec![Cell::new(0); n];
-        return Self { parent, rank };
+        let size = vec![1; n];
+        return Self { parent, size };
     }
 
     fn make_equivalent(&mut self, a: usize, b: usize) {
@@ -739,14 +736,14 @@ impl EquivalenceRelation {
         if aa == bb {
             return;
         }
-        let aarank = self.rank[aa].get();
-        let bbrank = self.rank[bb].get();
-        if aarank > bbrank {
+        let aasize = self.size[aa];
+        let bbsize = self.size[bb];
+        if aasize > bbsize {
             self.parent[bb].set(aa);
-        // self.rank[aa] = aarank.max(bbrank + 1);
+            self.size[aa] = aasize + bbsize;
         } else {
             self.parent[aa].set(bb);
-            self.rank[bb].set(bbrank.max(aarank + 1));
+            self.size[bb] = aasize + bbsize;
         }
     }
 
@@ -767,6 +764,10 @@ impl EquivalenceRelation {
 
     fn are_equivalent(&self, a: usize, b: usize) -> bool {
         return self.find(a) == self.find(b);
+    }
+
+    fn size(&self, a: usize) -> usize {
+        self.size[self.find(a)]
     }
 }
 
