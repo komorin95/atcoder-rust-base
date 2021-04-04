@@ -26,14 +26,9 @@ fn main() {
     }
 }
 
-
 #[allow(unused)]
 mod static_prime_modint {
     pub use crate::modint::*;
-    use num_traits::{pow, NumAssignOps, One, PrimInt, Unsigned};
-    use std::marker::PhantomData;
-    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
-
     pub trait NttFriendlyModulus<T>: StaticModulus<T>
     where
         T: NumAssignOps + PrimInt + Unsigned,
@@ -261,117 +256,51 @@ mod static_prime_modint {
 #[allow(unused)]
 mod dynamic_modint {
     use crate::gcd;
-    use num_traits::{PrimInt, Unsigned};
-    use std::ops::{Add, Mul, Sub};
-
-    #[derive(Clone, Copy, PartialEq, Debug)]
-    pub struct ModM<T>(T, T);
-
-    impl<T> ModM<T>
-    where
-        T: PrimInt + Unsigned,
-    {
-        pub fn new(a: T, m: T) -> Self {
-            ModM(a % m, m)
-        }
-        pub fn value(&self) -> T {
-            self.0
-        }
-    }
-    pub fn pow_modm<T>(base: ModM<T>, index: usize) -> ModM<T>
-    where
-        T: PrimInt + Unsigned,
-    {
-        if index == 0 {
-            return ModM(T::one(), base.1);
-        } else {
-            if index % 2 == 0 {
-                let half = pow_modm(base, index / 2);
-                return half * half;
-            } else {
-                let half = pow_modm(base, index / 2);
-                return half * half * base;
-            }
-        }
-    }
-    impl<T> Add for ModM<T>
-    where
-        T: PrimInt + Unsigned,
-    {
-        type Output = Self;
-        fn add(self, rhs: Self) -> Self {
-            if self.1 != rhs.1 {
-                panic!("Tried to add two number in different modulus");
-            }
-            return ModM((self.0 + rhs.0) % self.1, self.1);
-        }
-    }
-    impl<T> Sub for ModM<T>
-    where
-        T: PrimInt + Unsigned,
-    {
-        type Output = Self;
-        fn sub(self, rhs: Self) -> Self {
-            if self.1 != rhs.1 {
-                panic!("Tried to subtract two number in different modulus");
-            }
-            return ModM((self.0 + self.1 - rhs.0) % self.1, self.1);
-        }
-    }
-    impl<T> Mul for ModM<T>
-    where
-        T: PrimInt + Unsigned,
-    {
-        type Output = Self;
-        fn mul(self, rhs: Self) -> Self {
-            if self.1 != rhs.1 {
-                panic!("Tried to multiply two number in different modulus");
-            }
-            return ModM((self.0 * rhs.0) % self.1, self.1);
-        }
-    }
-
+    pub use crate::modint::*;
     // For a = aa mod m,
     // it computes (g mod m, b mod m),
     // that satisfies g = gcd(aa,m) and aa*b = g mod m
-    pub fn inv_gcd<T>(am: ModM<T>) -> (ModM<T>, ModM<T>)
+    pub fn inv_gcd<T>(am: ModInt<T, ModDyn<T>>) -> (ModInt<T, ModDyn<T>>, ModInt<T, ModDyn<T>>)
     where
-        T: PrimInt + Unsigned + std::fmt::Debug,
+        T: PrimInt + Unsigned + NumAssignOps,
     {
-        let a = am.0;
-        let m = am.1;
+        let a = am.value();
+        let m = am.modulus();
         if m % a == T::zero() {
-            return (am, ModM(T::one(), m));
+            return (am, ModInt::new_with(T::one(), m));
         }
         let q = m / a;
         let r = m % a;
-        let (ga, xa) = inv_gcd(ModM(r, a));
-        let g = ga.0;
-        let gm = ModM(g, m);
-        let x = xa.0;
+        let (ga, xa) = inv_gcd(ModInt::new_with(r, a));
+        let g = ga.value();
+        let gm = ModInt::new_with(g, m);
+        let x = xa.value();
         if r * x > g {
             let y = (r * x - g) / a;
             let z = (q * x + y) % m;
-            let zm = ModM(T::zero(), m) - ModM(z, m);
-            debug_assert_eq!(am * zm, gm);
+            let zm = ModInt::new_with(T::zero(), m) - ModInt::new_with(z, m);
+            debug_assert!(am * zm == gm);
             return (gm, zm);
         } else {
             let y = (g - r * x) / a;
-            let zm = ModM(y, m) - ModM((q * x) % m, m);
-            debug_assert_eq!(am * zm, gm);
+            let zm = ModInt::new_with(y, m) - ModInt::new_with((q * x) % m, m);
+            debug_assert!(am * zm == gm);
             return (gm, zm);
         }
     }
 
     // Two-term Chinese remainder theorem function
-    pub fn crt<T>(am: ModM<T>, bmm: ModM<T>) -> Option<ModM<T>>
+    pub fn crt<T>(
+        am: ModInt<T, ModDyn<T>>,
+        bmm: ModInt<T, ModDyn<T>>,
+    ) -> Option<ModInt<T, ModDyn<T>>>
     where
-        T: PrimInt + Unsigned + std::fmt::Debug,
+        T: PrimInt + Unsigned + NumAssignOps,
     {
-        let a = am.0;
-        let m = am.1;
-        let b = bmm.0;
-        let mm = bmm.1;
+        let a = am.value();
+        let m = am.modulus();
+        let b = bmm.value();
+        let mm = bmm.modulus();
         if m == mm {
             if a == b {
                 return Some(am);
@@ -382,77 +311,83 @@ mod dynamic_modint {
             return crt(bmm, am);
         } else {
             // m < mm
-            let (dmm, xmm) = inv_gcd(ModM(m, mm));
-            let d = dmm.0;
-            debug_assert_eq!(d, gcd(m, mm));
-            let x = xmm.0;
+            let (dmm, xmm) = inv_gcd(ModInt::new_with(m, mm));
+            let d = dmm.value();
+            debug_assert!(d == gcd(m, mm));
+            let x = xmm.value();
             return crt_internal(a, b, m, mm, d, x);
         }
     }
 
     // Two-slice Chinese remainder theorem function
     // It assumes all the moduli are equal for each slice
-    pub fn crt_slice<T>(a: &[ModM<T>], b: &[ModM<T>]) -> Option<Vec<ModM<T>>>
+    pub fn crt_slice<T>(
+        a: &[ModInt<T, ModDyn<T>>],
+        b: &[ModInt<T, ModDyn<T>>],
+    ) -> Vec<Option<ModInt<T, ModDyn<T>>>>
     where
-        T: PrimInt + Unsigned + std::fmt::Debug,
+        T: PrimInt + Unsigned + NumAssignOps,
     {
         let mut result = vec![];
         if a.len() == 0 || a.len() != b.len() {
-            return Some(result);
+            return result;
         }
         // Now a.len() == b.len() >= 1
         result.reserve(a.len());
-        let m = a[0].1;
-        let mm = b[0].1;
+        let m = a[0].modulus();
+        let mm = b[0].modulus();
         if m == mm {
             for i in 0..a.len() {
-                if a[i].0 == b[i].0 {
-                    result.push(a[i]);
+                if a[i].value() == b[i].value() {
+                    result.push(Some(a[i]));
                 } else {
-                    return None;
+                    result.push(None);
                 }
             }
         } else if m > mm {
             return crt_slice(b, a);
         } else {
             // m < mm
-            let (dmm, xmm) = inv_gcd(ModM(m, mm));
-            let d = dmm.0;
-            debug_assert_eq!(d, gcd(m, mm));
-            let x = xmm.0;
+            let (dmm, xmm) = inv_gcd(ModInt::new_with(m, mm));
+            let d = dmm.value();
+            debug_assert!(d == gcd(m, mm));
+            let x = xmm.value();
             for i in 0..a.len() {
-                if let Some(cmmm) = crt_internal(a[i].0, b[i].0, m, mm, d, x) {
-                    result.push(cmmm);
-                } else {
-                    return None;
-                }
+                result.push(crt_internal(a[i].value(), b[i].value(), m, mm, d, x));
+                // if let Some(cmmm) = crt_internal(a[i].value(), b[i].value(), m, mm, d, x) {
+                //     result.push(cmmm);
+                // } else {
+                //     return None;
+                // }
             }
         }
-        return Some(result);
+        return result;
     }
 
-    fn crt_internal<T>(a: T, b: T, m: T, mm: T, d: T, x: T) -> Option<ModM<T>>
+    fn crt_internal<T>(a: T, b: T, m: T, mm: T, d: T, x: T) -> Option<ModInt<T, ModDyn<T>>>
     where
-        T: PrimInt + Unsigned + std::fmt::Debug,
+        T: PrimInt + Unsigned + NumAssignOps,
     {
         if a % d != b % d {
             return None;
         }
         let mmm = m * mm / d;
         if a == b {
-            return Some(ModM(a, mmm));
+            return Some(ModInt::new_with(a, mmm));
         } else if a < b {
             let y = (b - a) / d;
-            let ans = ModM(a, mmm) + ModM(m * x, mmm) * ModM(y, mmm);
-            debug_assert_eq!(ans.0 % m, a);
-            debug_assert_eq!(ans.0 % mm, b);
+            let ans =
+                ModInt::new_with(a, mmm) + ModInt::new_with(m * x, mmm) * ModInt::new_with(y, mmm);
+            debug_assert!(ans.value() % m == a);
+            debug_assert!(ans.value() % mm == b);
             return Some(ans);
         } else {
             // a > b
             let y = (a - b) / d;
-            let ans = ModM(a, mmm) - ModM(m * x, mmm) * ModM(y, mmm);
-            debug_assert_eq!(ans.0 % m, a);
-            debug_assert_eq!(ans.0 % mm, b);
+            let ans =
+                ModInt::new_with(a, mmm) - ModInt::new_with(m * x, mmm) * ModInt::new_with(y, mmm);
+            debug_assert!(ans.value() % m == a);
+            debug_assert!(ans.value() % mm == b);
             return Some(ans);
         }
     }
@@ -483,10 +418,10 @@ mod dynamic_modint {
                     if a >= p {
                         break;
                     }
-                    let sym = pow_modm(ModM(a as u128, p as u128), (p - 1) / 2);
-                    if sym.0 == (p - 1) as u128 {
-                        let zeta = pow_modm(ModM(a as u128, p as u128), k);
-                        println!("{} {} {} {} {}", n, k, p, a, zeta.0);
+                    let sym = ModInt::new_with(a as u128, p as u128).pow((p - 1) / 2);
+                    if sym.value() == (p - 1) as u128 {
+                        let zeta = ModInt::new_with(a as u128, p as u128).pow(k);
+                        println!("{} {} {} {} {}", n, k, p, a, zeta.value());
                         break;
                     }
                 }
@@ -495,9 +430,9 @@ mod dynamic_modint {
     }
 
     pub fn check_powers(a: usize, p: usize, n: usize) {
-        let mut aa = ModM(a as u128, p as u128);
+        let mut aa = ModInt::new_with(a as u128, p as u128);
         for i in 0..n {
-            println!("{} times: {}", i, aa.0);
+            println!("{} times: {}", i, aa.value());
             aa = aa * aa;
         }
     }
@@ -519,14 +454,14 @@ mod dynamic_modint {
                 continue;
             }
             discrete_logarithm[a - 1] = 1;
-            let mut a_power = ModM(a, p);
+            let mut a_power = ModInt::new_with(a, p);
             // calculate a^2 to a^(p-2)
             for i in 2..p - 1 {
-                a_power = a_power * ModM(a, p);
-                if a_power.0 == 1 {
+                a_power = a_power * ModInt::new_with(a, p);
+                if a_power.value() == 1 {
                     continue 'a_loop;
                 }
-                discrete_logarithm[a_power.0 - 1] = i;
+                discrete_logarithm[a_power.value() - 1] = i;
             }
             return (a, discrete_logarithm);
         }
@@ -536,8 +471,7 @@ mod dynamic_modint {
 
 #[allow(unused)]
 mod modint {
-    use num_traits::{NumAssignOps, PrimInt, Unsigned};
-    use std::marker::PhantomData;
+    pub use num_traits::{NumAssignOps, PrimInt, Unsigned};
     use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
 
     pub trait Modulus<T>: Copy + Eq
@@ -584,6 +518,9 @@ mod modint {
     {
         pub fn new_with(x: T, m: T) -> Self {
             ModInt(x % m, ModDyn(m))
+        }
+        pub fn modulus(&self) -> T {
+            self.1.modulus()
         }
     }
     impl<T, M> ModInt<T, M>
