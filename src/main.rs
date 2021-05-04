@@ -2,15 +2,15 @@
 
 #[cfg(debug_assertions)]
 #[allow(unused)]
-macro_rules! debug_eprintln {
+macro_rules! eprintln {
     ($p:tt, $($x:expr),*) => {
-        eprintln!($p, $($x,)*);
+        std::eprintln!($p, $($x,)*);
     };
 }
 
 #[cfg(not(debug_assertions))]
 #[allow(unused)]
-macro_rules! debug_eprintln {
+macro_rules! eprintln {
     ($p:tt, $($x:expr),*) => {};
 }
 
