@@ -80,7 +80,7 @@ mod static_prime_modint {
     }
     impl Modulus<usize> for Mod9_2 {
         fn modulus(&self) -> usize {
-            998_244_353
+            985_661_441
         }
     }
 
